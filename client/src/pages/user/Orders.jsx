@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
 import { IoMdTime } from "react-icons/io";
 import { CiCalendarDate } from "react-icons/ci";
@@ -9,18 +8,25 @@ import {
   setIsOrderModalOpen,
   setSingleOrderDetails,
 } from "../../redux/user/userSlice";
-import { formatTZS, getLocalBookings } from "../../data/localData";
+import { formatTZS } from "../../data/localData";
+import { getBookings } from "../../services/bookingService";
+import VehicleArtwork from "../../components/VehicleArtwork";
 
 
 
 export default function Orders() {
-  const { _id } = useSelector((state) => state.user.currentUser);
   const [bookings, setBookings] = useState([]);
   const dispatch = useDispatch();
 
   useEffect(() => {
-    setBookings(getLocalBookings(_id));
-  }, [_id]);
+    let active = true;
+    getBookings()
+      .then((data) => active && setBookings(data))
+      .catch((error) => console.error("Could not load bookings", error));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleDetailsModal = (bookingDetails, vehicleDetails) => {
     dispatch(setIsOrderModalOpen(true));
@@ -47,16 +53,10 @@ export default function Orders() {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-6 ">
                     <div className="mb-4">
-                    <img
+                    <VehicleArtwork
                       alt={cur.vehicleDetails.name}
-                      className="w-full h-auto bg-gray-100  "
-                      height="200"
+                      className="aspect-video w-full rounded-[20px]"
                       src={cur.vehicleDetails.image[0]}
-                      style={{
-                        aspectRatio: "200/200",
-                        objectFit: "contain",
-                      }}
-                      width="200"
                     />
                     </div>
                     

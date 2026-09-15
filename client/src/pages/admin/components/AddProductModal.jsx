@@ -5,14 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
-import {
-  setModelData,
-  setCompanyData,
-  setLocationData,
-  setDistrictData,
-} from "../../../redux/adminSlices/adminDashboardSlice/CarModelDataSlice";
 import { MenuItem } from "@mui/material";
-import { setWholeData } from "../../../redux/user/selectRideSlice";
 
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -21,58 +14,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {  setLoading, setadminAddVehicleSuccess, setadminCrudError } from "../../../redux/adminSlices/adminDashboardSlice/StatusSlice";
-
-export const fetchModelData = async (dispatch) => {
-  try {
-    const res = await fetch("/api/admin/getVehicleModels", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (res.ok) {
-      const data = await res.json();
-
-      //getting models from data
-      const models = data
-        .filter((cur) => cur.type === "car")
-        .map((cur) => cur.model);
-      dispatch(setModelData(models));
-
-      //getting comapnys from data
-      const brand = data
-        .filter((cur) => cur.type === "car")
-        .map((cur) => cur.brand);
-      const uniqueBrand = brand.filter((cur, index) => {
-        return brand.indexOf(cur) === index;
-      });
-      dispatch(setCompanyData(uniqueBrand));
-
-      //getting locations from data
-      const locations = data
-        .filter((cur) => cur.type === "location")
-        .map((cur) => cur.location);
-      dispatch(setLocationData(locations));
-
-      //getting districts from data
-      const districts = data
-        .filter((cur) => cur.type === "location")
-        .map((cur) => cur.district);
-      const uniqueDistricts = districts.filter((cur, idx) => {
-        return districts.indexOf(cur) === idx;
-      });
-      dispatch(setDistrictData(uniqueDistricts));
-
-      //setting whole data
-      const wholeData = data.filter((cur) => cur.type === "location");
-      dispatch(setWholeData(wholeData));
-    } else {
-      return "no data found";
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
+import { createVehicle } from "../../../services/vehicleService";
+import { loadCatalogMetadata } from "../../../utils/loadCatalogMetadata";
 
 const AddProductModal = () => {
   const { register, handleSubmit, control , reset } = useForm();
@@ -85,9 +28,9 @@ const AddProductModal = () => {
   const {loading} = useSelector(state => state.statusSlice)
 
   useEffect(() => {
-    fetchModelData(dispatch);
+    loadCatalogMetadata(dispatch).catch(console.error);
     dispatch(addVehicleClicked(true))
-  }, []);
+  }, [dispatch]);
 
   const onSubmit = async (addData) => {
    
@@ -126,21 +69,10 @@ const AddProductModal = () => {
         tostID = toast.loading("saving...", { position: "bottom-center" });
         dispatch(setLoading(true))
       }
-      const res = await fetch("/api/admin/addProduct", {
-        method: "POST",
-        body:formData
-      });
-
-      if (!res.ok) {
-        toast.error("error");
-        toast.dismiss(tostID);
-        dispatch(setLoading(false))
-      }
-      if (res.ok) {
-        dispatch(setadminAddVehicleSuccess(true));
-        toast.dismiss(tostID)
-        dispatch(setLoading(false))
-      }
+      await createVehicle(formData);
+      dispatch(setadminAddVehicleSuccess(true));
+      toast.dismiss(tostID)
+      dispatch(setLoading(false))
 
       reset();
     } catch (error) {

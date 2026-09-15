@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useDispatch } from "react-redux";
 import { signInSuccess } from "../../../redux/user/userSlice";
-import { demoVendor } from "../../../data/localData";
+import { signUpWithPassword } from "../../../services/authService";
 
 const schema = z.object({
   username: z.string().min(3, { message: "minimum 3 characters required" }),
@@ -17,7 +17,7 @@ const schema = z.object({
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(4, { message: "minimum 4 characters required" }),
+  password: z.string().min(6, { message: "minimum 6 characters required" }),
 });
 
 function VendorSignup() {
@@ -28,6 +28,7 @@ function VendorSignup() {
   } = useForm({ resolver: zodResolver(schema) });
 
   const [isError, setError] = useState(false);
+  const [notice, setNotice] = useState("");
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -36,18 +37,19 @@ function VendorSignup() {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = {
-        ...demoVendor,
-        username: formData.username,
-        email: formData.email,
-      };
+      const data = await signUpWithPassword({ ...formData, role: "vendor" });
       setLoading(false);
+      if (data.requiresEmailConfirmation) {
+        setNotice("Check your email to confirm your vendor account, then sign in.");
+        setError(false);
+        return;
+      }
       setError(false);
       dispatch(signInSuccess(data));
       navigate("/vendorDashboard");
     } catch (error) {
       setLoading(false);
-      setError(true);
+      setError(error);
     }
   };
 
@@ -75,7 +77,7 @@ function VendorSignup() {
         >
           <div>
             <input
-              type="text"
+              type="password"
               id="username"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="UserName"
@@ -131,8 +133,9 @@ function VendorSignup() {
               </span>
             </p>
             <p className="text-[10px] text-red-600">
-              {isError && "something went wrong"}
+              {isError && (isError.message || "something went wrong")}
             </p>
+            {notice && <p className="text-[10px] text-green-700">{notice}</p>}
           </div>
         </form>
         <div>

@@ -7,18 +7,26 @@ import { useNavigate } from "react-router-dom";
 
 import { setVariants } from "../../redux/user/listAllVehicleSlice";
 import { setFilteredData } from "../../redux/user/sortfilterSlice";
-import { formatTZS, getVehiclesByModel } from "../../data/localData";
+import { formatTZS } from "../../data/localData";
+import { getAvailableVariants } from "../../services/vehicleService";
+import VehicleArtwork from "../../components/VehicleArtwork";
 
 const AvailableVehiclesAfterSearch = () => {
   const { availableCars } = useSelector((state) => state.selectRideSlice);
-  const { pickup_district, pickup_location } =
+  const { pickup_district, pickup_location, pickupDate, dropoffDate } =
     useSelector((state) => state.bookingDataSlice);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const showVarients = async (model) => {
     try {
-      const data = getVehiclesByModel(model, pickup_district, pickup_location);
+      const data = await getAvailableVariants({
+        model,
+        pickupDate: pickupDate.humanReadable,
+        dropOffDate: dropoffDate.humanReadable,
+        pickUpDistrict: pickup_district,
+        pickUpLocation: pickup_location,
+      });
       dispatch(setVariants(data));
       dispatch(setFilteredData(data));
       navigate("/allVariants");
@@ -34,7 +42,7 @@ const AvailableVehiclesAfterSearch = () => {
           <h2 className="text-[18px] lg:text-[24px]">Choose From Options</h2>
           <p className="text-center text-[8px] px-6  lg:text-[12px]  lg:w-[550px]">
             Choose from locally available cars near your selected Tanzania
-            pickup point. Each option uses demo data for frontend preview.
+            pickup point for the dates you selected.
           </p>
         </div>
       )}
@@ -49,13 +57,11 @@ const AvailableVehiclesAfterSearch = () => {
                   key={idx}
                 >
                   <div className="mx-auto max-w-[320px] px-4 py-2 sm:px-6 sm:py-0 lg:max-w-7xl lg:px-8">
-                    <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden object-contain rounded-md bg-white lg:aspect-none group-hover:opacity-75 lg:h-80 mb-3">
-                      <img
-                        src={`${cur.image[0]}`}
-                        alt={`cur.name`}
-                        className=" w-full object-contain object-center lg:h-full lg:w-full"
-                      />
-                    </div>
+                    <VehicleArtwork
+                      src={cur.image[0]}
+                      alt={cur.name}
+                      className="mb-3 aspect-video w-full rounded-[20px] transition-opacity group-hover:opacity-90"
+                    />
                     <div className="flex justify-between items-start">
                       <h2 className="text-[14px] capitalize font-semibold tracking-tight text-gray-900">
                         <span></span>

@@ -40,7 +40,7 @@ const Sort = () => {
     if(!allVariants){
       dispatch(setFilteredData(userAllVehicles))
     }
-  },[])
+  }, [allVariants, dispatch, userAllVehicles])
 
   return (
     <div className=" drop-shadow-lg">

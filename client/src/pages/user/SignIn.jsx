@@ -11,7 +11,7 @@ import OAuth from "../../components/OAuth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getDemoUserForEmail } from "../../data/localData";
+import { signInWithPassword } from "../../services/authService";
 
 const schema = z.object({
   email: z
@@ -20,37 +20,8 @@ const schema = z.object({
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(1, { message: "password required" }),
+  password: z.string().min(6, { message: "minimum 6 characters required" }),
 });
-
-// export const refreshToken = async (dispatch,getState) => {
-//   const { authSlice } = getState();
-
-//   if (!authSlice.refreshToken) {
-//     // No refresh token available, handle the situation (e.g., log out the user)
-//     dispatch(logout());
-//     return;
-//   }
-
-//   try {
-//     const res = await fetch('/api/auth/refresh', {
-//       method: 'POST',
-//       credentials: 'include', // Include cookies in the request
-//     });
-
-//     const data = await res.json();
-
-//     if (!res.ok) {
-//       dispatch(refreshTokenFailure(data));
-//       return;
-//     }
-
-//     // The server should set the new access token and refresh token in the response cookies
-//     dispatch(refreshTokenSuccess(data));
-//   } catch (err) {
-//     dispatch(signInFailure(err));
-//   }
-// }
 
 function SignIn() {
   const {
@@ -67,7 +38,7 @@ function SignIn() {
     e.preventDefault();
     try {
       dispatch(signInStart());
-      const data = getDemoUserForEmail(formData.email, "Asha Mwakyusa");
+      const data = await signInWithPassword(formData);
 
       if (data.isAdmin) {
         dispatch(signInSuccess(data));
@@ -79,7 +50,7 @@ function SignIn() {
         navigate("/");
       } else {
         dispatch(loadingEnd());
-        dispatch(signInFailure(data));
+        dispatch(signInFailure(new Error("Use the vendor sign-in page for this account.")));
       }
     } catch (error) {
       dispatch(loadingEnd());
@@ -109,7 +80,7 @@ function SignIn() {
         >
           <div>
             <input
-              type="text"
+              type="password"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"

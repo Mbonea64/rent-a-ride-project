@@ -19,6 +19,7 @@ import {
 import { GrStatusGood } from "react-icons/gr";
 import { MdOutlinePending } from "react-icons/md";
 import VendorHeader from "../Components/VendorHeader";
+import { getVendorVehicles } from "../../../services/vehicleService";
 
 
 const VendorAllVehicles = () => {
@@ -29,32 +30,17 @@ const VendorAllVehicles = () => {
   const { vendorVehilces, vendorEditSuccess,vendorDeleteSuccess, vendorErrorSuccess } = useSelector(
     (state) => state.vendorDashboardSlice
   );
-  const { _id } = useSelector((state) => state.user.currentUser);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/vendor/showVendorVehilces", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            _id,
-          }),
-        });
-        if (!res.ok) {
-          console.log("not success");
-          return;
-        }
-        const data = await res.json();
+        const data = await getVendorVehicles();
         dispatch(setVenodrVehilces(data));
       } catch (error) {
         console.log(error);
       }
     };
     fetchData();
-  }, [_id, dispatch, isAddVehicleClicked]);
+  }, [dispatch, isAddVehicleClicked]);
 
 
   //edit vehicles
@@ -172,7 +158,7 @@ const VendorAllVehicles = () => {
     }
 
    
-  }, [vendorEditSuccess,vendorDeleteSuccess]);
+  }, [vendorEditSuccess, vendorDeleteSuccess, vendorErrorSuccess, dispatch]);
 
   return (
     <div className="max-w-[1000px]  d-flex   justify-end text-start items-end p-10 bg-slate-100 rounded-md">

@@ -14,12 +14,14 @@ import { setIsSweetAlert, setPageLoading } from "../../redux/user/userSlice";
 import { setLatestBooking } from "../../redux/user/LatestBookingsSlice";
 import {toast, Toaster} from "sonner";
 import {
-  demoUser,
   formatTZS,
-  localVehicles,
   paymentMethods,
-  saveLocalBooking,
 } from "../../data/localData";
+import { createBooking } from "../../services/bookingService";
+import CarNotFound from "./CarNotFound";
+import VehicleArtwork from "../../components/VehicleArtwork";
+import useSelectedVehicle from "../../hooks/useSelectedVehicle";
+import { getVehicleImage } from "../../utils/vehicleImages";
 // import { toast, Toaster } from "sonner";
 
 const schema = z.object({
@@ -57,18 +59,19 @@ const CheckoutPage = () => {
     dropoffDate,
   } = useSelector((state) => state.bookingDataSlice);
 
-  const currentUser = useSelector((state) => state.user.currentUser) || demoUser;
-  const singleVehicleDetail =
-    useSelector((state) => state.userListVehicles.singleVehicleDetail) ||
-    localVehicles[0];
+  const currentUser = useSelector((state) => state.user.currentUser);
+  const {
+    vehicle: singleVehicleDetail,
+    isLoading: isVehicleLoading,
+    error: vehicleError,
+  } = useSelectedVehicle();
   const { isPageLoading } = useSelector((state) => state.user);
   const dispatch = useDispatch();
 
-  const { email, phoneNumber, adress } = currentUser;
-  const { price } = singleVehicleDetail;
+  const { email, phoneNumber, adress } = currentUser || {};
+  const { price = 0 } = singleVehicleDetail || {};
 
-  const user_id = currentUser._id;
-  const vehicle_id = singleVehicleDetail._id;
+  const vehicle_id = singleVehicleDetail?._id;
 
   const defaultPickupDate = new Date();
   const defaultDropoffDate = new Date(defaultPickupDate);
@@ -83,7 +86,7 @@ const CheckoutPage = () => {
   const displayDropoffDate = new Date(dropoffDateValue);
 
   const diffMilliseconds = end - start;
-  const Days = Math.round(diffMilliseconds / (1000 * 3600 * 24));
+  const Days = Math.ceil(diffMilliseconds / (1000 * 3600 * 24));
 
   //settting and checking coupon
   const [wrongCoupon, setWrongCoupon] = useState(false);
@@ -107,36 +110,39 @@ const CheckoutPage = () => {
   //handle place order data
   const handlePlaceOrder = async (formValues) => {
     const orderData = {
-      user_id,
       vehicle_id,
       totalPrice,
       pickupDate: pickupDateValue,
       dropoffDate: dropoffDateValue,
-      pickup_district: pickup_district || singleVehicleDetail.district,
-      pickup_location: pickup_location || singleVehicleDetail.location,
-      dropoff_location: dropoff_location || singleVehicleDetail.location,
+      pickup_district: pickup_district || singleVehicleDetail?.district,
+      pickup_location: pickup_location || singleVehicleDetail?.location,
+      dropoff_location: dropoff_location || singleVehicleDetail?.location,
       ...formValues,
     };
 
     try {
       dispatch(setPageLoading(true));
-      const booking = saveLocalBooking({
-        user: currentUser,
-        vehicle: singleVehicleDetail,
-        bookingDetails: orderData,
-      });
+      const booking = await createBooking(orderData);
       dispatch(setLatestBooking(booking));
       dispatch(setIsSweetAlert(true));
-      toast.success("Demo booking confirmed locally");
+      toast.success("Booking created. Payment is pending.");
       navigate("/");
     } catch (error) {
       console.log(error);
-      toast.error("Could not save this local booking");
+      toast.error(error.message || "Could not create this booking");
       dispatch(setPageLoading(false));
     }finally{
       dispatch(setPageLoading(false))
     }
   };
+
+  if (isVehicleLoading) {
+    return <div className="p-12 text-center">Loading vehicle...</div>;
+  }
+
+  if (!currentUser || vehicleError || !singleVehicleDetail) return <CarNotFound />;
+
+  const primaryImage = getVehicleImage(singleVehicleDetail);
 
   return (
     <>
@@ -162,10 +168,11 @@ const CheckoutPage = () => {
               Check your rental and select a Tanzania payment method
             </p>
             <div className="flex flex-col rounded-lg bg-white sm:flex-row">
-              <img
-                className="m-1 mt-2 h-44 w-[200px] rounded-md  drop-shadow-md  border border-sm  object-contain object-center"
-                src={singleVehicleDetail.image[0]}
-                alt=""
+              <VehicleArtwork
+                src={primaryImage}
+                alt={singleVehicleDetail.name}
+                fit="auto"
+                className="m-1 mt-2 aspect-video w-full rounded-[20px] border drop-shadow-md sm:w-[240px]"
               />
               <div className="flex w-full flex-col px-4 py-4">
                 <span className="font-semibold capitalize">

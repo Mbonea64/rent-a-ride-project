@@ -8,6 +8,7 @@ import { Button } from "@mui/material";
 import { Header } from "../components";
 import toast, { Toaster } from "react-hot-toast";
 import { DataGrid } from "@mui/x-data-grid";
+import { deleteVehicle, getAllVehicles } from "../../../services/vehicleService";
 
 import Box from "@mui/material/Box";
 import { showVehicles } from "../../../redux/user/listAllVehicleSlice";
@@ -29,30 +30,22 @@ function AllVehicles() {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
-        const res = await fetch("/api/admin/showVehicles", {
-          method: "GET",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setVehicles(data);
-          dispatch(showVehicles(data));
-        }
+        const data = await getAllVehicles();
+        setVehicles(data);
+        dispatch(showVehicles(data));
       } catch (error) {
         console.log(error);
       }
     };
     fetchVehicles();
-  }, [isAddVehicleClicked]);
+  }, [isAddVehicleClicked, dispatch]);
 
   //delete a vehicle
   const handleDelete = async (vehicle_id) => {
     try {
       setVehicles(allVehicles.filter((cur) => cur._id !== vehicle_id));
-      const res = await fetch(`/api/admin/deleteVehicle/${vehicle_id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        toast.success("deleted", {
+      await deleteVehicle(vehicle_id);
+      toast.success("deleted", {
           duration: 800,
 
           style: {
@@ -60,7 +53,6 @@ function AllVehicles() {
             background: "#c48080",
           },
         });
-      }
     } catch (error) {
       console.log(error);
     }

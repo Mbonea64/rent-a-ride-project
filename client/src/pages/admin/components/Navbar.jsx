@@ -29,7 +29,7 @@ const Navbar = () => {
     handleResize();
 
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (screenSize <= 900) {
@@ -37,7 +37,7 @@ const Navbar = () => {
     } else {
       dispatch(showSidebarOrNot(true));
     }
-  }, [screenSize]);
+  }, [screenSize, dispatch]);
 
   const NavButton = ({ title, customFunc, icon, color, dotColor }) => (
     <TooltipComponent content={title} position={"BottomCenter"}>

@@ -1,6 +1,4 @@
 import { GrSecure } from "react-icons/gr";
-import { useDispatch, useSelector } from "react-redux";
-
 import { FaStar } from "react-icons/fa";
 import { CiCalendarDate } from "react-icons/ci";
 import { GiGearStickPattern } from "react-icons/gi";
@@ -15,53 +13,37 @@ import { IoArrowBackCircleSharp } from "react-icons/io5";
 import { TooltipComponent } from "@syncfusion/ej2-react-popups";
 
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { showVehicles } from "../../redux/user/listAllVehicleSlice";
-import { formatTZS, localVehicles } from "../../data/localData";
+import { formatTZS } from "../../data/localData";
+import CarNotFound from "./CarNotFound";
+import VehicleArtwork from "../../components/VehicleArtwork";
+import useSelectedVehicle from "../../hooks/useSelectedVehicle";
+import { getVehicleImage } from "../../utils/vehicleImages";
 // import { signOut } from "../../redux/user/userSlice";
 
 const VehicleDetails = () => {
-  const { singleVehicleDetail } = useSelector(
-    (state) => state.userListVehicles
-  );
-
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const vehicle = singleVehicleDetail || localVehicles[0];
-  
-  useEffect(() => {
-    dispatch(showVehicles(localVehicles));
-  }, [dispatch]);
+  const { vehicle, isLoading, error } = useSelectedVehicle();
 
   const handleBook = async (navigate) => {
     try {
-      // const booked = await fetch('/api/auth/refreshToken',{
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization':`Bearer ${refreshToken},${accessToken}`,
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify({
-      //     vehicleId,
-
-      //   })
-      // })
-
-      // if(!booked.ok){
-      //   dispatch(signOut())
-      //   navigate('/signup')
-      //   return
-      // }
-      // const data = await booked.json();
-      // if(data){
-      //   navigate('/checkoutPage')
-      // }
-
-      navigate("/checkoutPage");
+      navigate(`/checkoutPage/${vehicle._id}`);
     } catch (error) {
       console.log(error);
     }
   };
+
+  if (isLoading) {
+    return <div className="p-12 text-center">Loading vehicle...</div>;
+  }
+
+  if (error || !vehicle) return <CarNotFound />;
+
+  const primaryImage = getVehicleImage(vehicle);
+  const galleryImages = Array.isArray(vehicle.image)
+    ? vehicle.image.filter(Boolean)
+    : primaryImage
+      ? [primaryImage]
+      : [];
 
   return (
     <div>
@@ -71,13 +53,12 @@ const VehicleDetails = () => {
             <div className="lg:col-span-3 lg:row-end-1">
               <div className="lg:flex lg:items-start mt-[100px]">
                 <div className="lg:order-2 lg:ml-5">
-                  <div className="max-w-xl overflow-hidden rounded-lg relative">
-                    <img
-                      className="h-full w-full max-w-full object-cover"
-                      src={vehicle.image[0]}
-                      alt={vehicle.model}
-                    />
-                  </div>
+                  <VehicleArtwork
+                    src={primaryImage}
+                    alt={vehicle.name}
+                    loading="eager"
+                    className="aspect-video max-w-xl rounded-[24px]"
+                  />
                 </div>
                 <div className="absolute top-2 left-5 md:left-10">
                   <TooltipComponent content={"back"} position="BottomCenter">
@@ -91,16 +72,16 @@ const VehicleDetails = () => {
                 </div>
                 <div className="mt-2 w-full lg:order-1 lg:w-32 lg:flex-shrink-0">
                   <div className="flex flex-row items-start lg:flex-col">
-                    {vehicle.image.map((cur, idx) => (
+                    {galleryImages.length > 1 && galleryImages.map((cur, idx) => (
                         <button
                           type="button"
-                          className="flex-0 aspect-square mb-3 h-20 overflow-hidden rounded-lg border-2 border-gray-900 text-center"
+                          className="mb-3 w-32 overflow-hidden rounded-lg border-2 border-gray-900 text-center"
                           key={idx}
                         >
-                          <img
-                            className="h-full w-full object-cover"
+                          <VehicleArtwork
                             src={cur}
-                            alt=""
+                            alt={`${vehicle.name} view ${idx + 1}`}
+                            className="aspect-video w-full"
                           />
                         </button>
                       ))}

@@ -64,9 +64,11 @@ function App() {
             <Route path="/profile/*" element={<Profile />} />
             <Route path="/allVariants" element={<AllVehiclesofSameModel />} />
             <Route path="/vehicleDetails" element={<VehicleDetails />} />
+            <Route path="/vehicleDetails/:vehicleId" element={<VehicleDetails />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/availableVehicles" element={<AvailableVehicles />} />
             <Route path="/checkoutPage" element={<CheckoutPage />} />
+            <Route path="/checkoutPage/:vehicleId" element={<CheckoutPage />} />
             <Route path="/razorpay" element={<Razorpay />} />
           </Route>
 

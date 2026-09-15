@@ -13,6 +13,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { toast } from "react-hot-toast";
 import { setVendorEditSuccess } from "../../../redux/vendor/vendorDashboardSlice";
+import { updateVehicle } from "../../../services/vehicleService";
 
 export default function VendorEditProductComponent() {
   const dispatch = useDispatch();
@@ -51,26 +52,9 @@ export default function VendorEditProductComponent() {
       if (editData && vehicle_id) {
         tostID = toast.loading("saving...", { position: "bottom-center" });
         const formData = editData;
-        const res = await fetch(
-          `/api/vendor/vendorEditVehicles/${vehicle_id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ formData }),
-          }
-        );
-
-        if (!res.ok) {
-          toast.error("error");
-          toast.dismiss(tostID);
-        }
-
-        if (res.ok) {
-          toast.dismiss(tostID);
-          dispatch(setVendorEditSuccess(true));
-        }
+        await updateVehicle(vehicle_id, formData);
+        toast.dismiss(tostID);
+        dispatch(setVendorEditSuccess(true));
       }
       reset();
     } catch (error) {

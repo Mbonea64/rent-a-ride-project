@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
@@ -41,4 +42,3 @@ export const VendorDashboardSlice = createSlice({
   
   export const { setVenodrVehilces  ,setadminVenodrRequest,setUpdateRequestTable ,setVendorEditSuccess ,setVendorError,setVendorDeleteSuccess } = VendorDashboardSlice.actions;
   export default VendorDashboardSlice.reducer;
-  

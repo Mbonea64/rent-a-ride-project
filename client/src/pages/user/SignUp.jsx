@@ -5,7 +5,7 @@ import OAuth from "../../components/OAuth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getDemoUserForEmail } from "../../data/localData";
+import { signUpWithPassword } from "../../services/authService";
 import { useDispatch } from "react-redux";
 import { signInSuccess } from "../../redux/user/userSlice";
 
@@ -18,7 +18,7 @@ const schema = z.object({
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(4, { message: "minimum 4 characters required" }),
+  password: z.string().min(6, { message: "minimum 6 characters required" }),
 });
 
 function SignUp() {
@@ -29,6 +29,7 @@ function SignUp() {
   } = useForm({ resolver: zodResolver(schema) });
 
   const [isError, setError] = useState(false);
+  const [notice, setNotice] = useState("");
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -37,10 +38,11 @@ function SignUp() {
     e.preventDefault();
     setLoading(true);
     try {
-      const data = getDemoUserForEmail(formData.email, formData.username);
+      const data = await signUpWithPassword({ ...formData, role: "customer" });
       setLoading(false);
-      if (!data.isUser) {
-        setError(true);
+      if (data.requiresEmailConfirmation) {
+        setNotice("Check your email to confirm your account, then sign in.");
+        setError(false);
         return;
       }
       setError(false);
@@ -48,7 +50,7 @@ function SignUp() {
       navigate("/");
     } catch (error) {
       setLoading(false);
-      setError(true);
+      setError(error);
     }
   };
 
@@ -74,7 +76,7 @@ function SignUp() {
         >
           <div>
             <input
-              type="text"
+              type="password"
               id="username"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="UserName"
@@ -134,8 +136,9 @@ function SignUp() {
               </span>
             </p>
             <p className="text-[10px] text-red-600">
-              {isError && "something went wrong"}
+              {isError && (isError.message || "something went wrong")}
             </p>
+            {notice && <p className="text-[10px] text-green-700">{notice}</p>}
           </div>
         </form>
         <div>

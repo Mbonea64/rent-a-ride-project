@@ -1,17 +1,17 @@
-import React, { useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setCompanyData, setDistrictData, setLocationData, setModelData } from "../redux/adminSlices/adminDashboardSlice/CarModelDataSlice";
 import { setWholeData } from "../redux/user/selectRideSlice";
-import { localMasterData } from "../data/localData";
+import { getCatalogMetadata } from "../services/vehicleService";
 
 const useFetchLocationsLov = () => {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchLov = async () => {
+  const fetchLov = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = localMasterData;
+      const data = await getCatalogMetadata();
 
       const models = data.filter((cur) => cur.type === "car").map((cur) => cur.model);
       dispatch(setModelData(models));
@@ -38,7 +38,7 @@ const useFetchLocationsLov = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dispatch]);
 
   return { fetchLov, isLoading };
 };

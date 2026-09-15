@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 
 import { MenuItem, } from "@mui/material";
-import { fetchModelData } from "../../admin/components/AddProductModal";
+import { loadCatalogMetadata } from "../../../utils/loadCatalogMetadata";
 import { useEffect } from "react";
 
 import Button from "@mui/material/Button";
@@ -22,6 +22,7 @@ import { IoMdClose } from "react-icons/io";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { createVehicle } from "../../../services/vehicleService";
 
 
 const VendorAddProductModal = () => {
@@ -32,12 +33,11 @@ const VendorAddProductModal = () => {
   const { modelData, companyData, locationData, districtData } = useSelector(
     (state) => state.modelDataSlice
   );
-  const { _id } = useSelector((state) => state.user.currentUser);
 
 
   useEffect(() => {
-    fetchModelData(dispatch);
-  }, []);
+    loadCatalogMetadata(dispatch).catch(console.error);
+  }, [dispatch]);
 
   const onSubmit = async (addData) => {
     try {
@@ -67,7 +67,6 @@ const VendorAddProductModal = () => {
       formData.append("car_type", addData.carType);
       formData.append("location", addData.vehicleLocation);
       formData.append("district", addData.vehicleDistrict);
-      formData.append("addedBy", _id); 
       
 
       let tostID;
@@ -75,20 +74,9 @@ const VendorAddProductModal = () => {
         tostID = toast.loading("saving...", { position: "bottom-center" });
       }
 
-      const res = await fetch("/api/vendor/vendorAddVehicle", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        toast.error("error");
-        toast.dismiss(tostID);
-      }
-      if (res.ok) {
-        toast.success("request send to admin");
-        toast.dismiss(tostID);
-        
-      }
+      await createVehicle(formData);
+      toast.success("Request sent to admin");
+      toast.dismiss(tostID);
 
       reset();
     } catch (error) {

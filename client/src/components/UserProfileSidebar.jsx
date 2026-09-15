@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   deleteUserStart,
   deleteUserSuccess,
+  deleteUserFailure,
   signOut,
 } from "../redux/user/userSlice";
 import { SiShopware } from "react-icons/si";
@@ -11,6 +12,7 @@ import { MdOutlineCancel } from "react-icons/md";
 import { links } from "./UserSidebarContent";
 import { showSidebarOrNot } from "../redux/adminSlices/adminDashboardSlice/DashboardSlice";
 import { CiLogout } from "react-icons/ci";
+import { deleteCurrentAccount, signOutFromSupabase } from "../services/authService";
 
 
 const UserProfileSidebar = () => {
@@ -18,7 +20,7 @@ const UserProfileSidebar = () => {
     (state) => state.adminDashboardSlice
   );
 
-  const { currentUser, isLoading } = useSelector(
+  const { isLoading } = useSelector(
     (state) => state.user
   );
 
@@ -33,15 +35,22 @@ const UserProfileSidebar = () => {
 
   //SignOut
   const handleSignout = async () => {
+    await signOutFromSupabase();
     dispatch(signOut());
     navigate("/signin");
   };
 
   const handleDelete = async () => {
     dispatch(deleteUserStart());
-    localStorage.removeItem("persist:root");
-    dispatch(deleteUserSuccess());
-    navigate("/signup");
+    try {
+      await deleteCurrentAccount();
+      localStorage.removeItem("persist:root");
+      dispatch(deleteUserSuccess());
+      navigate("/signup");
+    } catch (error) {
+      console.error("Could not delete account", error);
+      dispatch(deleteUserFailure(error));
+    }
   };
 
   return (

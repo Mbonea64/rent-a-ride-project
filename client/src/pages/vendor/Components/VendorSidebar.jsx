@@ -7,6 +7,7 @@ import { CiLogout } from "react-icons/ci";
 import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../redux/user/userSlice.jsx";
 import { showSidebarOrNot } from "../../../redux/adminSlices/adminDashboardSlice/DashboardSlice.jsx";
+import { signOutFromSupabase } from "../../../services/authService";
 
 const VendorSidebar = () => {
     const { activeMenu, screenSize } = useSelector(
@@ -25,14 +26,9 @@ const VendorSidebar = () => {
 
   //SignOut
   const handleSignout = async () => {
-    const res = await fetch("/api/admin/signout", {
-      method: "GET",
-    });
-    const data = await res.json();
-    if (data) {
-      dispatch(signOut());
-      navigate("/signin");
-    }
+    await signOutFromSupabase();
+    dispatch(signOut());
+    navigate("/signin");
   };
 
   return (

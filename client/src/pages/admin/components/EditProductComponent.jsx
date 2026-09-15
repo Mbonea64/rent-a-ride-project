@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { setadminEditVehicleSuccess } from "../../../redux/adminSlices/adminDashboardSlice/StatusSlice";
+import { updateVehicle } from "../../../services/vehicleService";
 
 export default function EditProductComponent() {
   const dispatch = useDispatch();
@@ -53,23 +54,9 @@ export default function EditProductComponent() {
         tostID = toast.loading("saving...", { position: "bottom-center" });
         const formData = editData;
         dispatch(setEditData({ _id: vehicle_id, ...formData }));
-        const res = await fetch(`/api/admin/editVehicle/${vehicle_id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ formData }),
-        });
-
-        if(!res.ok){
-        toast.error("error");
+        await updateVehicle(vehicle_id, formData);
         toast.dismiss(tostID);
-        }
-
-        if (res.ok) {
-          toast.dismiss(tostID);
-          dispatch(setadminEditVehicleSuccess(true))
-        }
+        dispatch(setadminEditVehicleSuccess(true))
 
         dispatch(setEditData(null));
       }

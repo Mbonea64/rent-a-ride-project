@@ -10,7 +10,7 @@ import VendorOAuth from "../../../components/VendorAuth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { demoVendor } from "../../../data/localData";
+import { signInWithPassword } from "../../../services/authService";
 
 const schema = z.object({
   email: z
@@ -19,7 +19,7 @@ const schema = z.object({
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(1, { message: "password required" }),
+  password: z.string().min(6, { message: "minimum 6 characters required" }),
 });
 
 function VendorSignin() {
@@ -37,7 +37,10 @@ function VendorSignin() {
     e.preventDefault();
     try {
       dispatch(signInStart());
-      const data = { ...demoVendor, email: formData.email };
+      const data = await signInWithPassword(formData);
+      if (!data.isVendor) {
+        throw new Error("This account is not registered as a vendor.");
+      }
       navigate("/vendorDashboard");
       dispatch(signInSuccess(data));
     } catch (error) {
@@ -69,7 +72,7 @@ function VendorSignin() {
         >
           <div>
             <input
-              type="text"
+              type="password"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"

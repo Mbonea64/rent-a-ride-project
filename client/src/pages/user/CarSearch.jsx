@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { setSelectedData } from "../../redux/user/BookingDataSlice";
 import dayjs from "dayjs";
 import useFetchLocationsLov from "../../hooks/useFetchLocationsLov";
-import { getAvailableVehicleModels } from "../../data/localData";
+import { searchAvailableVehicles } from "../../services/vehicleService";
 
 const schema = z.object({
   dropoff_location: z.string().min(1, { message: "Dropoff location needed" }),
@@ -81,7 +81,7 @@ const CarSearch = () => {
   useEffect(() => {
     // fetchModelData(dispatch);
     fetchLov();
-  }, []);
+  }, [fetchLov]);
 
   //for showing appropriate locations according to districts
   useEffect(() => {
@@ -93,7 +93,7 @@ const CarSearch = () => {
         .map((cur) => cur.location);
       dispatch(setLocationsOfDistrict(showLocationInDistrict));
     }
-  }, [selectedDistrict]);
+  }, [selectedDistrict, wholeData, dispatch]);
 
   //search cars
   const hanldeData = async (data) => {
@@ -111,7 +111,7 @@ const CarSearch = () => {
           pickUpLocation: data.pickup_location,
         };
 
-        const result = getAvailableVehicleModels(datas);
+        const result = await searchAvailableVehicles(datas);
 
         if (!result.length) {
           setError("No vehicles found for that pickup point. Try another Tanzania location.");
@@ -127,7 +127,7 @@ const CarSearch = () => {
         });
       }
     } catch (error) {
-      console.log("Error  : ", error);
+      setError(error.message || "Unable to search vehicles right now.");
     }
   };
 

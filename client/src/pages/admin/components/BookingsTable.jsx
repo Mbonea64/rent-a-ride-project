@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
+import { getBookings, setBookingStatus } from "../../../services/bookingService";
 
 const BookingsTable = () => {
   const [bookings, setBookings] = useState([]);
@@ -8,14 +9,7 @@ const BookingsTable = () => {
 
   const fetchBookings = async () => {
     try {
-      const res = await fetch("/api/admin/allBookings", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await res.json();
+      const data = await getBookings();
       if (data) {
         setBookings(data);
       }
@@ -30,20 +24,7 @@ const BookingsTable = () => {
 
     const changeVehicleStatus = async () => {
       try {
-        const isStatusChanged = await fetch("/api/admin/changeStatus", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: bookingId,
-            status: newStatus,
-          }),
-        });
-
-        if (!isStatusChanged.ok) {
-          return;
-        }
+        await setBookingStatus(bookingId, newStatus);
         fetchBookings()
 
       } catch (error) {

@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 import { IoMdTime } from "react-icons/io";
 import { CiCalendarDate } from "react-icons/ci";
 import { CiLocationOn } from "react-icons/ci";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import VendorBookingDetailModal from "./VendorBookingModal";
 import { IoIosArrowDown } from "react-icons/io";
 import { setVendorOrderModalOpen, setVendorSingleOrderDetails } from "../../../redux/vendor/vendorBookingSlice";
 import { formatTZS } from "../../../data/localData";
+import { getBookings, setBookingStatus } from "../../../services/bookingService";
+import { getVendorVehicles } from "../../../services/vehicleService";
 
 
 const VendorBookingsTable = () => {
   const [bookings, setBookings] = useState("");
   const [vendorVehicles, setVendorVehicles] = useState("");
   const [filtered, setFilteredBookings] = useState("");
-  const { _id } = useSelector((state) => state.user.currentUser);
   const dispatch = useDispatch();
 
   const optionsValue = [
@@ -26,57 +27,20 @@ const VendorBookingsTable = () => {
     "tripCompleted",
   ];
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/vendor/showVendorVehilces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          _id,
-        }),
-      });
-      if (!res.ok) {
-        console.log("not success");
-        return;
-      }
-      const data = await res.json();
-
-      if (!data) {
-        return;
-      }
-      return data;
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  //get all vendor Vehicles
-  async function getVendorAllVehicles() {
-    try {
-      const data = await fetchData();
-      setVendorVehicles(data);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-    }
-  }
-
   useEffect(() => {
-    getVendorAllVehicles();
+    let active = true;
+    getVendorVehicles()
+      .then((data) => active && setVendorVehicles(data))
+      .catch((error) => console.error("Error fetching vendor vehicles:", error));
+    return () => {
+      active = false;
+    };
   }, []);
 
   // fetching all bookings
   const fetchBookings = async () => {
     try {
-      const res = await fetch("/api/admin/allBookings", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await res.json();
+      const data = await getBookings();
       if (data) {
         setBookings(data);
       }
@@ -91,20 +55,7 @@ const VendorBookingsTable = () => {
 
     const changeVehicleStatus = async () => {
       try {
-        const isStatusChanged = await fetch("/api/admin/changeStatus", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: bookingId,
-            status: newStatus,
-          }),
-        });
-
-        if (!isStatusChanged.ok) {
-          return;
-        }
+        await setBookingStatus(bookingId, newStatus);
         fetchBookings();
       } catch (error) {
         console.log(error);

@@ -5,11 +5,11 @@ const Razorpay = () => {
   return (
     <div className="mx-auto mt-20 max-w-xl px-6 py-10">
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-lg">
-        <p className="text-xl font-semibold">Local Payment Preview</p>
+        <p className="text-xl font-semibold">Payment Options</p>
         <p className="mt-2 text-sm text-slate-500">
-          Backend payment integration is disabled for this frontend phase. Use
-          checkout to preview Tanzania payment choices and save a demo booking
-          locally.
+          New bookings are stored securely in Supabase with a pending payment.
+          Provider confirmation will be enabled when the selected mobile-money
+          or bank integration is connected.
         </p>
 
         <div className="mt-6 grid gap-3">

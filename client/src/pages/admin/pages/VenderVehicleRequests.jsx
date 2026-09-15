@@ -8,6 +8,7 @@ import { DataGrid } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import { useEffect } from "react";
 import { setUpdateRequestTable, setVenodrVehilces, setadminVenodrRequest } from "../../../redux/vendor/vendorDashboardSlice";
+import { getPendingVehicles, reviewVehicle } from "../../../services/vehicleService";
 
 
 
@@ -20,21 +21,9 @@ const VenderVehicleRequests = () => {
   useEffect(() => {
     const fetchVendorRequest = async () => {
       try {
-        const res = await fetch(`/api/admin/fetchVendorVehilceRequests`, {
-          method: "GET",
-        });
-        if (!res.ok) {
-          console.error(
-            "Failed to fetch vendor vehicle requests:",
-            res.statusText
-          );
-          return;
-        }
-        if (res.ok) {
-          const data = await res.json();
-          dispatch(setVenodrVehilces(data));
-          dispatch(setadminVenodrRequest(data))
-        }
+        const data = await getPendingVehicles();
+        dispatch(setVenodrVehilces(data));
+        dispatch(setadminVenodrRequest(data))
       } catch (error) {
         console.log(error);
       }
@@ -46,21 +35,7 @@ const VenderVehicleRequests = () => {
   const handleApproveRequest = async (id) => {
     try {
       dispatch(setUpdateRequestTable(id))
-      const res = await fetch("/api/admin/approveVendorVehicleRequest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          _id: id,
-        }),
-      });
-
-      if (!res.ok) {
-        console.log("error");
-      }
-      const data = await res.json();
-     console.log(data)
+      await reviewVehicle(id, "approved");
     } catch (error) {
       console.log(error);
     }
@@ -70,20 +45,7 @@ const VenderVehicleRequests = () => {
   const handleReject = async (id) => {
     try {
      
-      const res = await fetch("/api/admin/rejectVendorVehicleRequest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          _id: id,
-        }),
-      });
-      if (!res.ok) {
-        console.log("error", res);
-      }
-      const data = await res.json();
-      console.log(data);
+      await reviewVehicle(id, "rejected");
     } catch (error) {
       console.log(error);
     }

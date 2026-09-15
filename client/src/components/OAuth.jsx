@@ -1,22 +1,20 @@
-import { signInSuccess } from "../redux/user/userSlice";
-import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { demoUser } from "../data/localData";
+import { signInWithProvider } from "../services/authService";
 
 function OAuth() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
 
-  const handleDemoSocialLogin = () => {
-    dispatch(signInSuccess(demoUser));
-    navigate("/");
+  const handleSocialLogin = async (provider) => {
+    try {
+      await signInWithProvider(provider, "customer");
+    } catch (error) {
+      console.error(error);
+    }
   };
   return (
     <div className={`px-5`}>
       <button
         className="flex w-full gap-3 justify-center border  py-3 rounded-md  items-center  border-black mb-4"
         type="button"
-        onClick={handleDemoSocialLogin}
+        onClick={() => handleSocialLogin("google")}
       >
         <span className="icon-[devicon--google]"></span>
         <span>Continue with Google</span>
@@ -24,7 +22,7 @@ function OAuth() {
       <button
         className="flex w-full gap-3 justify-center pl-4 border  py-3 rounded-md  items-center border-black"
         type="button"
-        onClick={handleDemoSocialLogin}
+        onClick={() => handleSocialLogin("facebook")}
       >
         <span className="icon-[logos--facebook]"></span>
         <span>Continue with Facebook</span>

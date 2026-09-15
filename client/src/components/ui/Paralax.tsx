@@ -8,6 +8,7 @@ import {
   MotionValue,
 } from "framer-motion";
 import { useMediaQuery } from 'react-responsive';
+import frontpageImage from "../../Assets/Frontpage image.jpg";
 
 
 
@@ -16,7 +17,7 @@ export const products = [
   {
     title: "",
     link: "https://userogue.com",
-    thumbnail: "https://evmwheels.com/front-theme/images/Group%20316.png",
+    thumbnail: frontpageImage,
   },
 
   {
@@ -27,12 +28,12 @@ export const products = [
   {
     title: "",
     link: "https://userogue.com",
-    thumbnail: "https://evmwheels.com/front-theme/images/Group%20316.png",
+    thumbnail: frontpageImage,
   },
   {
     title: "",
     link: "https://userogue.com",
-    thumbnail: "https://evmwheels.com/front-theme/images/Group%20316.png",
+    thumbnail: frontpageImage,
   },
 
   

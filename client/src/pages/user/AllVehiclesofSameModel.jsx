@@ -3,7 +3,7 @@ import { FaCarSide } from "react-icons/fa";
 import { BsFillFuelPumpFill } from "react-icons/bs";
 import { MdAirlineSeatReclineNormal } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
-import { onVehicleDetail } from "./Vehicles";
+import { onVehicleDetail } from "../../utils/openVehicleDetails";
 import CarNotFound from "./CarNotFound";
 import Filter from "../../components/Filter";
 import Sort from "../../components/Sort";
@@ -11,6 +11,7 @@ import Header from "../../components/Header";
 import { setVariantModeOrNot } from "../../redux/user/sortfilterSlice";
 import { useEffect } from "react";
 import { formatTZS } from "../../data/localData";
+import VehicleArtwork from "../../components/VehicleArtwork";
 
 const AllVehiclesofSameModel = () => {
   const { allVariants } = useSelector((state) => state.userListVehicles);
@@ -55,13 +56,11 @@ const AllVehiclesofSameModel = () => {
                       key={idx}
                     >
                       <div className="mx-auto max-w-[320px] px-4 py-2 sm:px-6 sm:py-0 lg:max-w-7xl lg:px-8">
-                        <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden object-contain rounded-md bg-white lg:aspect-none group-hover:opacity-75 lg:h-80 mb-3">
-                          <img
-                            src={`${cur.image[0]}`}
-                            alt={`cur.name`}
-                            className=" w-full object-contain object-center lg:h-full lg:w-full"
-                          />
-                        </div>
+                        <VehicleArtwork
+                          src={cur.image[0]}
+                          alt={cur.name}
+                          className="mb-3 aspect-video w-full rounded-[20px] transition-opacity group-hover:opacity-90"
+                        />
                         <div className="flex justify-between items-start">
                           <h2 className="text-[14px] capitalize font-semibold tracking-tight text-gray-900">
                             <span></span>
@@ -110,7 +109,7 @@ const AllVehiclesofSameModel = () => {
                             <button
                               className="bg-green-500 px-4 py-2 w-[100px] rounded-sm"
                               onClick={() =>
-                                onVehicleDetail(cur._id, dispatch, navigate)
+                                onVehicleDetail(cur, dispatch, navigate)
                               }
                             >
                               <div className="text-[12px] ">Book Ride</div>
@@ -119,7 +118,7 @@ const AllVehiclesofSameModel = () => {
                             <button
                               className="bg-black px-4 py-2 w-[100px] rounded-sm"
                               onClick={() =>
-                                onVehicleDetail(cur._id, dispatch, navigate)
+                                onVehicleDetail(cur, dispatch, navigate)
                               }
                             >
                               <div className="text-[12px] text-white">
@@ -137,7 +136,7 @@ const AllVehiclesofSameModel = () => {
             : (
               <div className="max-w-[400px] flex flex-col justify-center gap-y-4 items-center mx-auto mt-10">
                 <img
-                  src="https://d310a92p0we78s.cloudfront.net/illustration/premium/additional-file/2829991/1.svg?token=eyJhbGciOiJoczI1NiIsImtpZCI6ImRlZmF1bHQifQ__.eyJpc3MiOiJkMzEwYTkycDB3ZTc4cy5jbG91ZGZyb250Lm5ldCIsImV4cCI6MTcxNTY4Nzk0MiwicSI6bnVsbCwiaWF0IjoxNzE1NDI4NzQyfQ__.d4e4b015139247a901a11eeb00ef35e524acf56eaf251e07c1c468a9ebdf089e"
+                  src="/assets/vehicles/toyota-camry.png"
                   alt=""
                 />
                 <p className="text-md font-bold">No car found </p>

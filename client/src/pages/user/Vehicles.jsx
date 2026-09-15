@@ -2,30 +2,22 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setVariants,
-  setVehicleDetail,
   showVehicles,
 } from "../../redux/user/listAllVehicleSlice";
 import { FaCarSide } from "react-icons/fa";
 import { BsFillFuelPumpFill } from "react-icons/bs";
 import { MdAirlineSeatReclineNormal } from "react-icons/md";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Filter from "../../components/Filter";
 import Sort from "../../components/Sort";
 import Footers from "../../components/Footer";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
-import { findVehicleById, formatTZS, localVehicles } from "../../data/localData";
+import VehicleArtwork from "../../components/VehicleArtwork";
+import { formatTZS } from "../../data/localData";
+import { getPublicVehicles } from "../../services/vehicleService";
+import { onVehicleDetail } from "../../utils/openVehicleDetails";
 
 //use Custome hook in this case :)
-export const onVehicleDetail = async (id, dispatch, navigate) => {
-  try {
-    const data = findVehicleById(id);
-    dispatch(setVehicleDetail(data));
-    navigate("/vehicleDetails");
-  } catch (error) {
-    console.log(error);
-  }
-};
-
 const Vehicles = () => {
   const { userAllVehicles } = useSelector((state) => state.userListVehicles);
   const { data, filterdData } = useSelector((state) => state.sortfilterSlice);
@@ -36,9 +28,22 @@ const Vehicles = () => {
   //allVariants are set to null when we enter AllVehicles from navbar
 
   useEffect(() => {
+    let active = true;
     dispatch(setVariants(null));
-    dispatch(showVehicles(localVehicles));
-    setIsLoading(false);
+    const loadVehicles = async () => {
+      try {
+        const vehicles = await getPublicVehicles();
+        if (active) dispatch(showVehicles(vehicles));
+      } catch (error) {
+        console.error("Could not load vehicles", error);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    loadVehicles();
+    return () => {
+      active = false;
+    };
   }, [dispatch, data]);
 
   return (
@@ -69,13 +74,11 @@ const Vehicles = () => {
                       key={idx}
                     >
                       <div className="mx-auto max-w-[320px] px-4 py-2 sm:px-6 sm:py-0 lg:max-w-7xl lg:px-8">
-                        <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden object-contain rounded-md bg-white lg:aspect-none group-hover:opacity-75 lg:h-80 mb-3">
-                          <img
-                            src={`${cur.image[0]}`}
-                            alt={`cur.name`}
-                            className=" w-full object-contain object-center lg:h-full lg:w-full"
-                          />
-                        </div>
+                        <VehicleArtwork
+                          src={cur.image[0]}
+                          alt={cur.name}
+                          className="mb-3 aspect-video w-full rounded-[20px] transition-opacity group-hover:opacity-90"
+                        />
                         <div className="flex justify-between items-start">
                           <h2 className="text-[14px] capitalize font-semibold tracking-tight text-gray-900">
                             <span></span>
@@ -121,29 +124,25 @@ const Vehicles = () => {
                           <hr />
 
                           <div className="flex justify-center items-center gap-x-5  my-3">
-                            <Link to={"/vehicleDetails"}>
-                              <button
-                                className="bg-green-500 px-4 py-2 w-[100px] rounded-sm"
-                                onClick={() =>
-                                  onVehicleDetail(cur._id, dispatch, navigate)
-                                }
-                              >
-                                <div className="text-[12px] ">Book Ride</div>
-                              </button>
-                            </Link>
+                            <button
+                              className="bg-green-500 px-4 py-2 w-[100px] rounded-sm"
+                              onClick={() =>
+                                onVehicleDetail(cur, dispatch, navigate)
+                              }
+                            >
+                              <div className="text-[12px] ">Book Ride</div>
+                            </button>
 
-                            <Link to={"/vehicleDetails"}>
-                              <button
-                                className="bg-black px-4 py-2 w-[100px] rounded-sm"
-                                onClick={() =>
-                                  onVehicleDetail(cur._id, dispatch, navigate)
-                                }
-                              >
-                                <div className="text-[12px] text-white">
-                                  Details
-                                </div>
-                              </button>
-                            </Link>
+                            <button
+                              className="bg-black px-4 py-2 w-[100px] rounded-sm"
+                              onClick={() =>
+                                onVehicleDetail(cur, dispatch, navigate)
+                              }
+                            >
+                              <div className="text-[12px] text-white">
+                                Details
+                              </div>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -160,13 +159,11 @@ const Vehicles = () => {
                       key={idx}
                     >
                       <div className="mx-auto max-w-[320px] px-4 py-2 sm:px-6 sm:py-0 lg:max-w-7xl lg:px-8">
-                        <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden object-contain rounded-md bg-white lg:aspect-none group-hover:opacity-75 lg:h-80 mb-3">
-                          <img
-                            src={`${cur.image[0]}`}
-                            alt={`cur.name`}
-                            className=" w-full object-contain object-center lg:h-full lg:w-full"
-                          />
-                        </div>
+                        <VehicleArtwork
+                          src={cur.image[0]}
+                          alt={cur.name}
+                          className="mb-3 aspect-video w-full rounded-[20px] transition-opacity group-hover:opacity-90"
+                        />
                         <div className="flex justify-between items-start">
                           <h2 className="text-[14px] capitalize font-semibold tracking-tight text-gray-900">
                             <span></span>
@@ -212,29 +209,25 @@ const Vehicles = () => {
                           <hr />
 
                           <div className="flex justify-center items-center gap-x-5  my-3">
-                            <Link to={"/vehicleDetails"}>
-                              <button
-                                className="bg-green-500 px-4 py-2 w-[100px] rounded-sm"
-                                onClick={() =>
-                                  onVehicleDetail(cur._id, dispatch, navigate)
-                                }
-                              >
-                                <div className="text-[12px] ">Book Ride</div>
-                              </button>
-                            </Link>
+                            <button
+                              className="bg-green-500 px-4 py-2 w-[100px] rounded-sm"
+                              onClick={() =>
+                                onVehicleDetail(cur, dispatch, navigate)
+                              }
+                            >
+                              <div className="text-[12px] ">Book Ride</div>
+                            </button>
 
-                            <Link to={"/vehicleDetails"}>
-                              <button
-                                className="bg-black px-4 py-2 w-[100px] rounded-sm"
-                                onClick={() =>
-                                  onVehicleDetail(cur._id, dispatch, navigate)
-                                }
-                              >
-                                <div className="text-[12px] text-white">
-                                  Details
-                                </div>
-                              </button>
-                            </Link>
+                            <button
+                              className="bg-black px-4 py-2 w-[100px] rounded-sm"
+                              onClick={() =>
+                                onVehicleDetail(cur, dispatch, navigate)
+                              }
+                            >
+                              <div className="text-[12px] text-white">
+                                Details
+                              </div>
+                            </button>
                           </div>
                         </div>
                       </div>

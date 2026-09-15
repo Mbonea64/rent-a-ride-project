@@ -1,14 +1,12 @@
-import { signInSuccess } from "../redux/user/userSlice";
-import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { demoVendor } from "../data/localData";
+import { signInWithProvider } from "../services/authService";
 
 function VendorOAuth() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate()
-  const handleVendorGoogleClick = () => {
-    dispatch(signInSuccess(demoVendor));
-    navigate('/vendorDashboard')
+  const handleVendorGoogleClick = async () => {
+    try {
+      await signInWithProvider("google", "vendor");
+    } catch (error) {
+      console.error(error);
+    }
   };
   return (
     <div className={`px-5`}>

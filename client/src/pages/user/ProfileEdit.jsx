@@ -6,8 +6,9 @@ import { TbEditCircle } from "react-icons/tb";
 
 import TextField from "@mui/material/TextField";
 import { useDispatch, useSelector } from "react-redux";
-import { editUserProfile, setUpdated } from "../../redux/user/userSlice";
+import { signInSuccess, setUpdated } from "../../redux/user/userSlice";
 import { useForm } from "react-hook-form";
+import { updateCurrentProfile } from "../../services/authService";
 
 const ProfileEdit = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,8 +22,8 @@ const ProfileEdit = () => {
   const editProfileData = async (data) => {
     try {
       if (data) {
-        const formData = data;
-        dispatch(editUserProfile({ ...formData }));
+        const user = await updateCurrentProfile(data);
+        dispatch(signInSuccess(user));
         dispatch(setUpdated(true));
       }
     } catch (error) {
