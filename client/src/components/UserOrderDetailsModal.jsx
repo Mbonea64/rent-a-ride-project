@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { setIsOrderModalOpen } from "../redux/user/userSlice";
+import { formatTZS } from "../data/localData";
 
 const UserOrderDetailsModal = () => {
   const { isOrderModalOpen, singleOrderDetails: cur } = useSelector(
@@ -39,8 +40,14 @@ const UserOrderDetailsModal = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div>Total Amount</div>
-                    <div>{cur.bookingDetails.totalPrice}</div>
+                    <div>{formatTZS(cur.bookingDetails.totalPrice)}</div>
                   </div>
+                  {cur.bookingDetails.cancellationFee > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div>Cancellation Fee</div>
+                      <div>{formatTZS(cur.bookingDetails.cancellationFee)}</div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-2 ">
                     <div>Pickup Location</div>
                     <div>{cur.bookingDetails.pickUpLocation}</div>
@@ -105,6 +112,19 @@ const UserOrderDetailsModal = () => {
                 <div>Manufactureing Year</div>
                 <div>{cur.vehicleDetails.year_made}</div>
               </div>
+
+              {cur.bookingDetails.lineItems?.length > 0 && (
+                <>
+                  <div className="mt-4 font-bold">Price Breakdown</div>
+                  <hr className="mt-4 mb-4" />
+                  {cur.bookingDetails.lineItems.map((item) => (
+                    <div className="flex items-center justify-between gap-4" key={item.id}>
+                      <div>{item.description}</div>
+                      <div>{formatTZS(item.amount)}</div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
             <div className="flex flex-wrap items-center justify-end p-4 shrink-0 text-blue-gray-500">
               <button

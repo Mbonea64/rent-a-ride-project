@@ -5,13 +5,14 @@ import {
   signInFailure,
   signInStart,
   signInSuccess,
+  signOut,
 } from "../../redux/user/userSlice";
 import { useDispatch, useSelector } from "react-redux";
 import OAuth from "../../components/OAuth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signInWithPassword } from "../../services/authService";
+import { signInWithPassword, signOutFromSupabase } from "../../services/authService";
 
 const schema = z.object({
   email: z
@@ -41,9 +42,11 @@ function SignIn() {
       const data = await signInWithPassword(formData);
 
       if (data.isAdmin) {
-        dispatch(signInSuccess(data));
+        await signOutFromSupabase();
+        dispatch(signOut());
         dispatch(loadingEnd());
-        navigate("/adminDashboard");
+        dispatch(signInFailure(new Error("Use the secure admin gateway for this account.")));
+        navigate("/admin-login");
       } else if (data.isUser) {
         dispatch(signInSuccess(data));
         dispatch(loadingEnd());
@@ -80,7 +83,7 @@ function SignIn() {
         >
           <div>
             <input
-              type="password"
+              type="email"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"
@@ -93,7 +96,7 @@ function SignIn() {
 
           <div>
             <input
-              type="text"
+              type="password"
               id="password"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Password"

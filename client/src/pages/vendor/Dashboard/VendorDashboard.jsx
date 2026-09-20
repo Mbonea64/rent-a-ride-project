@@ -5,10 +5,11 @@ import { useSelector } from "react-redux";
 
 import { Navbar } from "../../admin/components";
 
-import AdminHomeMain from "../../admin/pages/AdminHomeMain";
+import VendorHomeMain from "../pages/VendorHomeMain";
 import VendorAllVehicles from "../pages/VendorAllVehicles";
 import VendorSidebar from "../Components/VendorSidebar";
 import VendorBookings from "../Components/VendorBookings";
+import NotificationsPage from "../../../components/NotificationsPage";
 
 function VendorDashboard() {
   const { activeMenu } = useSelector((state) => state.adminDashboardSlice);
@@ -46,12 +47,14 @@ function VendorDashboard() {
             <Navbar />
           </div>
 
-          <div className="main_section mx-8  ">
+          <div className="main_section mx-4 md:mx-8 overflow-x-hidden">
             <Routes>
-              <Route path="/" element={<AdminHomeMain />} />
-              <Route path="/adminHome" element={<AdminHomeMain />} />
+              <Route path="/" element={<VendorHomeMain />} />
+              <Route path="/adminHome" element={<VendorHomeMain />} />
+              <Route path="/overview" element={<VendorHomeMain />} />
               <Route path="/vendorAllVeihcles" element={<VendorAllVehicles />} />
               <Route path="/bookings" element={<VendorBookings />} />
+              <Route path="/notifications" element={<NotificationsPage role="vendor" />} />
 
             </Routes>
           </div>

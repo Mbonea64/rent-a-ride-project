@@ -9,14 +9,24 @@ import {
   setSingleOrderDetails,
 } from "../../redux/user/userSlice";
 import { formatTZS } from "../../data/localData";
-import { getBookings } from "../../services/bookingService";
+import { cancelBooking, generateBookingInvoice, getBookings, modifyBooking } from "../../services/bookingService";
+import DemoTripMonitor from "../../components/DemoTripMonitor";
+import { getBookingLifecycleLabel, isBookingPaid } from "../../services/notificationService";
 import VehicleArtwork from "../../components/VehicleArtwork";
 
 
 
 export default function Orders() {
   const [bookings, setBookings] = useState([]);
+  const [busyBookingId, setBusyBookingId] = useState(null);
+  const [editingBookingId, setEditingBookingId] = useState(null);
+  const [timeForm, setTimeForm] = useState({ pickupDate: "", dropoffDate: "", dropoffLocation: "" });
   const dispatch = useDispatch();
+
+  const loadBookings = () =>
+    getBookings()
+      .then((data) => setBookings(data))
+      .catch((error) => console.error("Could not load bookings", error));
 
   useEffect(() => {
     let active = true;
@@ -33,16 +43,91 @@ export default function Orders() {
     dispatch(setSingleOrderDetails(bookingDetails, vehicleDetails));
   };
 
+  const handleCancel = async (bookingId) => {
+    try {
+      setBusyBookingId(bookingId);
+      await cancelBooking(bookingId);
+      await loadBookings();
+    } catch (error) {
+      console.error("Could not cancel booking", error);
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const toDateTimeLocal = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 16);
+  };
+
+  const startEditingTime = (booking) => {
+    setEditingBookingId(booking._id);
+    setTimeForm({
+      pickupDate: toDateTimeLocal(booking.bookingDetails.pickupDate),
+      dropoffDate: toDateTimeLocal(booking.bookingDetails.dropOffDate),
+      dropoffLocation: booking.bookingDetails.dropOffLocation || "",
+    });
+  };
+
+  const handleTimeChange = async (booking) => {
+    try {
+      setBusyBookingId(booking._id);
+      await modifyBooking(booking._id, {
+        pickupDate: timeForm.pickupDate,
+        dropoffDate: timeForm.dropoffDate,
+        dropoff_location: timeForm.dropoffLocation,
+        coupon: null,
+        addOnCodes: booking.bookingDetails.selectedAddons || [],
+        mileagePackageKm: booking.bookingDetails.mileagePackageKm,
+        protectionPackage: booking.bookingDetails.protectionPackage || "standard",
+      });
+      setEditingBookingId(null);
+      await loadBookings();
+    } catch (error) {
+      console.error("Could not update booking time", error);
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const handleInvoice = async (bookingId) => {
+    try {
+      setBusyBookingId(bookingId);
+      await generateBookingInvoice(bookingId);
+      await loadBookings();
+    } catch (error) {
+      console.error("Could not generate invoice", error);
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const activeBookings = bookings.filter((booking) => booking.bookingDetails.status !== "canceled");
+  const cancelledBookings = bookings.filter((booking) => booking.bookingDetails.status === "canceled");
+
   return (
     <div className="max-w-4xl mx-auto py-20">
       <UserOrderDetailsModal />
       <h1 className="text-4xl font-semibold mb-2">Your Bookings</h1>
+      <DemoTripMonitor
+        bookings={bookings}
+        role="user"
+        title="Company updates from Rent a Ride"
+        emptyText="Your automated Rent a Ride deadline and route messages will appear here after booking."
+      />
       <div className="text-sm text-gray-600 mb-8">
-        {bookings && bookings.length > 0 ? "Check out all of your Bookings" :  <div className="font-extrabold text-black flex justify-center items-center min-h-[500px]">No Bookings Yet</div>}
+        {activeBookings && activeBookings.length > 0 ? (
+          `${activeBookings.length} active booking${activeBookings.length === 1 ? "" : "s"}`
+        ) : (
+          <div className="font-extrabold text-black flex justify-center items-center min-h-[180px]">No Active Bookings</div>
+        )}
       </div>
       <div className="mb-8">
-        {bookings && bookings.length > 0
-          && bookings.map((cur, idx) => {
+        {activeBookings && activeBookings.length > 0
+          && activeBookings.map((cur, idx) => {
               const pickupDate = new Date(cur.bookingDetails.pickupDate);
               const dropoffDate = new Date(cur.bookingDetails.dropOffDate);
 
@@ -69,6 +154,28 @@ export default function Orders() {
                       <p className="text-lg font-semibold mb-4 flex  items-center">
                         {formatTZS(cur.bookingDetails.totalPrice)}
                       </p>
+                      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full bg-gray-100 px-3 py-1 capitalize text-gray-700">
+                          {cur.bookingDetails.status}
+                        </span>
+                        {cur.bookingDetails.rentalProduct === "long_term" && (
+                          <span className="rounded-full bg-green-100 px-3 py-1 text-green-700">
+                            Long-term rate
+                          </span>
+                        )}
+                        {cur.bookingDetails.protectionPackage && (
+                          <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700">
+                            {cur.bookingDetails.protectionPackage} protection
+                          </span>
+                        )}
+                        <span
+                          className={`rounded-full px-3 py-1 ${
+                            isBookingPaid(cur) ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {getBookingLifecycleLabel(cur)}
+                        </span>
+                      </div>
                       <div className="flex justify-between">
                         <div className="">
                           <div className="mt-2 font-medium underline underline-offset-4 mb-5">
@@ -146,7 +253,80 @@ export default function Orders() {
                         >
                           Details
                         </button>
+                        <button
+                          className="rounded-lg bg-white px-5 py-2.5 me-2 mb-2 text-sm font-medium text-gray-800 ring-1 ring-gray-300 disabled:opacity-60"
+                          disabled={busyBookingId === cur._id}
+                          onClick={() => handleInvoice(cur._id)}
+                        >
+                          Invoice
+                        </button>
+                        {["notBooked", "booked"].includes(cur.bookingDetails.status) && (
+                          <>
+                          <button
+                            className="rounded-lg bg-sky-50 px-5 py-2.5 me-2 mb-2 text-sm font-medium text-sky-700 ring-1 ring-sky-200 disabled:opacity-60"
+                            disabled={busyBookingId === cur._id}
+                            onClick={() => startEditingTime(cur)}
+                          >
+                            Manage time
+                          </button>
+                          <button
+                            className="rounded-lg bg-red-50 px-5 py-2.5 me-2 mb-2 text-sm font-medium text-red-700 ring-1 ring-red-200 disabled:opacity-60"
+                            disabled={busyBookingId === cur._id}
+                            onClick={() => handleCancel(cur._id)}
+                          >
+                            Cancel
+                          </button>
+                          </>
+                        )}
                       </div>
+                      {editingBookingId === cur._id && (
+                        <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4">
+                          <p className="mb-3 text-sm font-semibold text-sky-950">Manage booking time</p>
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <label className="text-xs font-medium text-slate-700">
+                              Pickup
+                              <input
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                type="datetime-local"
+                                value={timeForm.pickupDate}
+                                onChange={(event) => setTimeForm((current) => ({ ...current, pickupDate: event.target.value }))}
+                              />
+                            </label>
+                            <label className="text-xs font-medium text-slate-700">
+                              Drop-off
+                              <input
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                type="datetime-local"
+                                value={timeForm.dropoffDate}
+                                onChange={(event) => setTimeForm((current) => ({ ...current, dropoffDate: event.target.value }))}
+                              />
+                            </label>
+                            <label className="text-xs font-medium text-slate-700">
+                              Return location
+                              <input
+                                className="mt-1 w-full rounded-md border border-slate-200 bg-white p-2 text-sm"
+                                value={timeForm.dropoffLocation}
+                                onChange={(event) => setTimeForm((current) => ({ ...current, dropoffLocation: event.target.value }))}
+                              />
+                            </label>
+                          </div>
+                          <div className="mt-4 flex gap-2">
+                            <button
+                              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                              disabled={busyBookingId === cur._id}
+                              onClick={() => handleTimeChange(cur)}
+                            >
+                              Save changes
+                            </button>
+                            <button
+                              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200"
+                              onClick={() => setEditingBookingId(null)}
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -154,6 +334,22 @@ export default function Orders() {
             })
           }
       </div>
+      {cancelledBookings.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Cancelled booking history</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Cancelled bookings are removed from active reservations, so the vehicle can be booked again.
+          </p>
+          <div className="mt-4 space-y-2">
+            {cancelledBookings.map((booking) => (
+              <div className="flex flex-col justify-between gap-2 rounded-lg bg-white p-3 text-sm md:flex-row" key={booking._id}>
+                <span className="font-medium text-slate-800">{booking.vehicleDetails?.name || "Vehicle booking"}</span>
+                <span className="text-slate-500">{booking.bookingDetails.pickUpLocation} to {booking.bookingDetails.dropOffLocation}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,112 +1,51 @@
-
-import { AiOutlineCalendar, AiOutlineShoppingCart, AiOutlineAreaChart, AiOutlineBarChart, AiOutlineStock } from 'react-icons/ai';
-import { FiShoppingBag, FiEdit, FiPieChart } from 'react-icons/fi';
-import { BsKanban, BsBarChart  } from 'react-icons/bs';
-import { BiColorFill } from 'react-icons/bi';
-import { IoMdContacts } from 'react-icons/io';
-import { RiContactsLine, RiStockLine } from 'react-icons/ri';
+import { AiOutlineShoppingCart } from "react-icons/ai";
+import { FiDollarSign, FiShoppingBag, FiShield, FiTruck, FiUsers } from "react-icons/fi";
 import { IoHomeOutline } from "react-icons/io5";
-import { GiLouvrePyramid } from 'react-icons/gi';
-
-
-
 
 export const links = [
-    {
-      title: 'Dashboard',
-      links: [
-        {
-          name:'adminHome',
-          icon:<IoHomeOutline />,
-        },
-        {
-          name: 'allProduct',
-          icon: <FiShoppingBag />,
-        },
-        {
-          name: 'vendorVehicleRequests',
-          icon: <FiShoppingBag />,
-        },
-        
-      ],
-    },
-  
-    {
-      title: 'Pages',
-      links: [
-        {
-          name: 'orders',
-          icon: <AiOutlineShoppingCart />,
-        },
-        {
-          name: 'employees',
-          icon: <IoMdContacts />,
-        },
-        {
-          name: 'customers',
-          icon: <RiContactsLine />,
-        },
-      ],
-    },
-    {
-      title: 'Apps',
-      links: [
-        {
-          name: 'calendar',
-          icon: <AiOutlineCalendar />,
-        },
-        {
-          name: 'kanban',
-          icon: <BsKanban />,
-        },
-        {
-          name: 'editor',
-          icon: <FiEdit />,
-        },
-        {
-          name: 'color-picker',
-          icon: <BiColorFill />,
-        },
-      ],
-    },
-    {
-        title: 'Charts',
-        links: [
-          {
-            name: 'line',
-            icon: <AiOutlineStock />,
-          },
-          {
-            name: 'area',
-            icon: <AiOutlineAreaChart />,
-          },
-    
-          {
-            name: 'bar',
-            icon: <AiOutlineBarChart />,
-          },
-          {
-            name: 'pie',
-            icon: <FiPieChart />,
-          },
-          {
-            name: 'financial',
-            icon: <RiStockLine />,
-          },
-          {
-            name: 'color-mapping',
-            icon: <BsBarChart />,
-          },
-          {
-            name: 'pyramid',
-            icon: <GiLouvrePyramid />,
-          },
-          {
-            name: 'stacked',
-            icon: <AiOutlineBarChart />,
-          },
-        ],
+  {
+    title: "Operations",
+    links: [
+      {
+        name: "adminHome",
+        label: "Overview",
+        icon: <IoHomeOutline />,
       },
-     
-    ];
-    
+      {
+        name: "orders",
+        label: "Bookings monitor",
+        icon: <AiOutlineShoppingCart />,
+      },
+      {
+        name: "sales",
+        label: "Sales records",
+        icon: <FiDollarSign />,
+      },
+      {
+        name: "vendorVehicleRequests",
+        label: "Vendor approvals",
+        icon: <FiShield />,
+      },
+      {
+        name: "allProduct",
+        label: "Fleet",
+        icon: <FiTruck />,
+      },
+    ],
+  },
+  {
+    title: "Accounts",
+    links: [
+      {
+        name: "allUsers",
+        label: "Customers",
+        icon: <FiUsers />,
+      },
+      {
+        name: "allVendors",
+        label: "Vendors",
+        icon: <FiShoppingBag />,
+      },
+    ],
+  },
+];

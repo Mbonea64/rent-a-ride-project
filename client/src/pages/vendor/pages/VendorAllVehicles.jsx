@@ -78,6 +78,7 @@ const VendorAllVehicles = () => {
     },
     { field: "company", headerName: "Company", width: 150 },
     { field: "name", headerName: "Name", width: 150 },
+    { field: "location", headerName: "Vehicle Location", width: 180 },
     {
       field: "status",
       headerName: "Status",
@@ -132,6 +133,7 @@ const VendorAllVehicles = () => {
         registeration_number: vehicle.registeration_number,
         company: vehicle.company,
         name: vehicle.name,
+        location: [vehicle.location, vehicle.district].filter(Boolean).join(", ") || "Not set",
         status: !vehicle.isRejected ? vehicle.isAdminApproved : "rejected",
       }));
 
@@ -161,7 +163,7 @@ const VendorAllVehicles = () => {
   }, [vendorEditSuccess, vendorDeleteSuccess, vendorErrorSuccess, dispatch]);
 
   return (
-    <div className="max-w-[1000px]  d-flex   justify-end text-start items-end p-10 bg-slate-100 rounded-md">
+    <div className="w-full max-w-none d-flex justify-end text-start items-end rounded-md bg-slate-100 p-4 md:p-8">
       {vendorEditSuccess && <Toaster />}
       {vendorDeleteSuccess && <Toaster/>}
 
@@ -169,30 +171,32 @@ const VendorAllVehicles = () => {
       {isVendorVehiclesEmpty ? (
         <p>No requests yet</p>
       ) : (
-        <Box sx={{ height: "100%", width: "100%" }}>
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            initialState={{
-              pagination: {
-                paginationModel: {
-                  pageSize: 8,
+        <div className="w-full overflow-x-auto">
+          <Box sx={{ height: "100%", minWidth: 980, width: "100%" }}>
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              initialState={{
+                pagination: {
+                  paginationModel: {
+                    pageSize: 8,
+                  },
                 },
-              },
-            }}
-            pageSizeOptions={[5]}
-            checkboxSelection
-            disableRowSelectionOnClick
-            sx={{
-              ".MuiDataGrid-columnSeparator": {
-                display: "none",
-              },
-              "&.MuiDataGrid-root": {
-                border: "none",
-              },
-            }}
-          />
-        </Box>
+              }}
+              pageSizeOptions={[5]}
+              checkboxSelection
+              disableRowSelectionOnClick
+              sx={{
+                ".MuiDataGrid-columnSeparator": {
+                  display: "none",
+                },
+                "&.MuiDataGrid-root": {
+                  border: "none",
+                },
+              }}
+            />
+          </Box>
+        </div>
       )}
 
     </div>

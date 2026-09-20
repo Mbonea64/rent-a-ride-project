@@ -603,6 +603,75 @@ body {
   animation: fadeOut 1.5s forwards;
 }
 
+.dashboard-stage {
+  --dashboard-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-reveal {
+  opacity: 0;
+  animation: dashboardReveal 700ms var(--dashboard-ease) forwards;
+}
+
+.dashboard-map {
+  opacity: 0;
+  animation: dashboardReveal 780ms var(--dashboard-ease) 120ms forwards;
+}
+
+.dashboard-step {
+  transition: transform 220ms ease, background-color 220ms ease;
+}
+
+.dashboard-step:hover {
+  transform: translateX(4px);
+  background-color: #eef6ff;
+}
+
+.dashboard-route-line {
+  stroke-dasharray: 64 100;
+  animation: dashboardRoutePulse 3.2s ease-in-out infinite;
+}
+
+.dashboard-route-dot {
+  animation: dashboardRouteMove 4.8s ease-in-out infinite;
+}
+
+@keyframes dashboardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dashboardRoutePulse {
+  0%,
+  100% {
+    stroke-dasharray: 42 100;
+  }
+  50% {
+    stroke-dasharray: 78 100;
+  }
+}
+
+@keyframes dashboardRouteMove {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  28% {
+    transform: translate(128px, -78px);
+  }
+  58% {
+    transform: translate(238px, -84px);
+  }
+  82% {
+    transform: translate(352px, -52px);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

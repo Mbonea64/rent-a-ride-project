@@ -1,95 +1,92 @@
-
-
-import {  LineChart, Button } from "../components";
-
-import { earningData } from "../data/dummys.jsx";
+import { useEffect, useMemo, useState } from "react";
+import PresentationDashboard from "../../../components/PresentationDashboard";
+import { getBookings } from "../../../services/bookingService";
+import { getAllVehicles, getPendingVehicles } from "../../../services/vehicleService";
 
 const AdminHomeMain = () => {
+  const [bookings, setBookings] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [pendingVehicles, setPendingVehicles] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      getBookings().catch(() => []),
+      getAllVehicles().catch(() => []),
+      getPendingVehicles().catch(() => []),
+    ]).then(([bookingData, vehicleData, pendingData]) => {
+      if (!active) return;
+      setBookings(bookingData || []);
+      setVehicles(vehicleData || []);
+      setPendingVehicles(pendingData || []);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeBookings = useMemo(
+    () => bookings.filter((booking) => ["booked", "onTrip", "overDue"].includes(booking.status)).length,
+    [bookings]
+  );
+
   return (
-    <div className="mt-12 ">
-      {/* hero - productsIncome */}
-      <div className="flex flex-wrap lg:flex-nowrap justify-center items-center lg:items-start">
-        <div className=" dark:text-gray-200 dark:bg-secondary-dark-bg h-44 rounded-xl w-full lg:w-80 xl:w-full 2xl:w-80 p-8 pt-9 m-3  bg-hero-pattern bg-no-repeat bg-cover   bg-slate-50 xl:h-[250px] 2xl:h-44">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-bold text-gray-400">Earnings</p>
-              <p className="text-2xl text-black">$63,448.78</p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <Button
-              color="white"
-              bgColor="blue"
-              text="Download"
-              borderRadius="10px"
-              size="md"
-            />
-          </div>
-        </div>
-
-        <div className="flex m-3 flex-wrap  justify-center xl:justify-start  gap-1 items-center ">
-          {earningData.map((item) => (
-            <div
-              key={item.title}
-              className="bg-slate-50 dark:text-gray-200 dark:bg-secondary-dark-bg md:w-56 p-4 pt9 rounded-2xl 2xl:h-44"
-            >
-              <button
-                type="button"
-                style={{ color: item.iconColor, backgroundColor: item.iconBg }}
-                className="text-2xl opacity-0.9 "
-              >
-                {item.icon}
-              </button>
-              <p className="mt-3">
-                <span className="text-lg font-semibold text-black">
-                  {item.amount}
-                </span>
-                <span className={`text-sm text-${item.pcColor} ml-2`}>
-                  {item.percentage}
-                </span>
-              </p>
-              <p className="text-sm text-gray-400 mt-1">{item.title}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* graphs */}
-
-      <div className="flex gap-10 m-4 flex-wrap justify-center">
-        <div className="bg-white dark:text-gray-200 dark:bg-secondary-dark-bg p-6 rounded-2xl">
-          <div className="flex justify-between items-center gap-2">
-            <p className="text-xl font-semibold">Recent Transactions</p>
-            {/* <DropDown currentMode={currentMode} /> */}
-          </div>
-          <div className="mt-10 w-72 md:w-400">
-           
-          </div>
-          <div className="flex justify-between items-center mt-5 border-t-1 border-color">
-            <div className="mt-3">
-              <Button
-                color="white"
-                // bgColor={currentColor}
-                text="Add"
-                borderRadius="10px"
-              />
-            </div>
-
-            <p className="text-gray-400 text-sm">36 Recent Transactions</p>
-          </div>
-        </div>
-        <div className="bg-white dark:text-gray-200 dark:bg-secondary-dark-bg p-6 rounded-2xl w-96 md:w-760">
-          <div className="flex justify-between items-center gap-2 mb-10">
-            <p className="text-xl font-semibold">Sales Overview</p>
-            {/* <DropDown currentMode={currentMode} /> */}
-          </div>
-          <div className="md:w-full overflow-auto">
-            <LineChart />
-          </div>
-        </div>
-      </div>
-    </div>
+    <PresentationDashboard
+      eyebrow="Admin command center"
+      title="Fleet approvals, booking control, and marketplace oversight."
+      subtitle="This workspace gives company operators one place to approve vendor inventory, monitor active reservations, and keep customer communication under the Rent a Ride brand."
+      primaryAction={{ label: "Review vendor cars", to: "/adminDashboard/vendorVehicleRequests" }}
+      secondaryAction={{ label: "Open bookings monitor", to: "/adminDashboard/orders" }}
+      stats={[
+        {
+          label: "Approved fleet",
+          value: vehicles.filter((vehicle) => vehicle.isAdminApproved && vehicle.isDeleted === "false").length,
+          note: "Company and approved vendor vehicles visible to customers.",
+        },
+        {
+          label: "Pending vendor cars",
+          value: pendingVehicles.length,
+          note: "Admin must approve before customers can book.",
+        },
+        {
+          label: "Active bookings",
+          value: activeBookings,
+          note: "Trips currently booked or on the road.",
+        },
+      ]}
+      steps={[
+        {
+          title: "Secure operator access",
+          description: "The public customer login no longer opens the admin dashboard. Admin uses /admin-login.",
+        },
+        {
+          title: "Vendor inventory review",
+          description: "The car stays pending until the owner approves it, keeping the marketplace controlled.",
+        },
+        {
+          title: "Reservation monitoring",
+          description: "The booking appears in the admin control room and in the owning vendor dashboard.",
+        },
+        {
+          title: "Company-managed communication",
+          description: "Deadline and route warnings are branded as company messages, not vendor messages.",
+        },
+      ]}
+      alerts={[
+        {
+          title: "Separate role gateways",
+          description: "Customer, vendor, and admin each have their own entry path and dashboard scope.",
+        },
+        {
+          title: "Vendor approval logic",
+          description: "Vendor cars can be accepted or rejected before entering the public catalogue.",
+        },
+        {
+          title: "Operations visibility",
+          description: "Admin sees the full booking channel across company-owned and vendor-owned vehicles.",
+        },
+      ]}
+    />
   );
 };
 

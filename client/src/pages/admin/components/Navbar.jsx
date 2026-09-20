@@ -11,15 +11,17 @@ import { RiNotification3Line } from "react-icons/ri";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { TooltipComponent } from "@syncfusion/ej2-react-popups";
 import {  Chat, Notification, UserProfile } from ".";
-import profiile from "../../../Assets/profile dummy image.png";
 import { useEffect } from "react";
 import PropTypes from "prop-types";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 
 const Navbar = () => {
   const dispatch = useDispatch();
   const {  chat, notification, userProfile, screenSize } = useSelector(
     (state) => state.adminDashboardSlice
   );
+  const currentUser = useSelector((state) => state.user.currentUser);
+  const displayName = currentUser?.username || "Admin";
 
   useEffect(() => {
     const handleResize = () => dispatch(setScreenSize(window.innerWidth));
@@ -98,11 +100,17 @@ const Navbar = () => {
             className="flex items-center gap-2 cursor-pointer p-1 hover:bg-gray-100 rounded-lg mt-2"
             onClick={() => dispatch(openPages("userProfile"))}
           >
-            <img src={profiile} alt="" className="w-4 h-4 rounded-full " />
+            <ProfileAvatar
+              email={currentUser?.email}
+              name={displayName}
+              role={currentUser?.isVendor ? "vendor" : "admin"}
+              src={currentUser?.profilePicture}
+              size={24}
+            />
             <p>
               <span className="text-[12px] text-gray-400">Hi,</span>{" "}
               <span className="text-gray-400 font-semi-bold  text-[12px]">
-                Jeevan
+                {displayName}
               </span>
             </p>
             <MdKeyboardArrowDown />

@@ -76,6 +76,7 @@ const VenderVehicleRequests = () => {
     },
     { field: "company", headerName: "Company", width: 150 },
     { field: "name", headerName: "Name", width: 150 },
+    { field: "owner", headerName: "Submitted By", width: 170 },
     {
       field: "status",
       headerName: "Status",
@@ -131,6 +132,7 @@ const VenderVehicleRequests = () => {
         registeration_number: vehicle.registeration_number,
         company: vehicle.company,
         name: vehicle.name,
+        owner: vehicle.ownerProfile?.username || vehicle.addedBy || "Vendor account",
         status: !vehicle.isAdminApproved,
       }))
 

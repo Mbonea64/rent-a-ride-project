@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { signOut } from "../../../redux/user/userSlice.jsx";
 import { showSidebarOrNot } from "../../../redux/adminSlices/adminDashboardSlice/DashboardSlice.jsx";
 import { signOutFromSupabase } from "../../../services/authService";
+import SidebarNotificationLink from "../../../components/SidebarNotificationLink.jsx";
 
 const SideBar = () => {
   const { activeMenu, screenSize } = useSelector(
@@ -70,11 +71,12 @@ const SideBar = () => {
                     }
                   >
                     {link.icon}
-                    <span className="capitalize text-gray-600">{link.name}</span>
+                    <span className="text-gray-600">{link.label || link.name}</span>
                   </NavLink>
                 ))}
               </div>
             ))}
+            <SidebarNotificationLink role="admin" />
             <div className="flex items-center mt-10 gap-2">
               <button
                 type="button"

@@ -15,6 +15,7 @@ import VendorSignin from "./pages/vendor/pages/VendorSignin";
 import VendorSignup from "./pages/vendor/pages/VendorSignup";
 import VendorPrivateRoute from "./components/VendorPrivateRoute";
 import VendorDashboard from "./pages/vendor/Dashboard/VendorDashboard";
+import AdminLogin from "./pages/admin/AdminLogin";
 
 import Layout from "./pages/admin/layouts/Layout";
 // import AddProductForm from "./pages/admin/dashboard/AddProductForm";
@@ -53,6 +54,7 @@ function App() {
             {/* Signin not accesible if logedin */}
             <Route element={<PrivateSignin />}>
               <Route path="/signin" element={<SignIn />} />
+              <Route path="/admin-login" element={<AdminLogin />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/vendorSignin" element={<VendorSignin />} />
               <Route path="/vendorSignup" element={<VendorSignup />} />

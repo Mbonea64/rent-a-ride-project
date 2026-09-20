@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setIsSweetAlert, setPageLoading } from "../../redux/user/userSlice";
 import { setLatestBooking } from "../../redux/user/LatestBookingsSlice";
@@ -17,7 +17,7 @@ import {
   formatTZS,
   paymentMethods,
 } from "../../data/localData";
-import { createBooking } from "../../services/bookingService";
+import { createBooking, getRentalAddOns, quoteBooking } from "../../services/bookingService";
 import CarNotFound from "./CarNotFound";
 import VehicleArtwork from "../../components/VehicleArtwork";
 import useSelectedVehicle from "../../hooks/useSelectedVehicle";
@@ -47,6 +47,8 @@ const CheckoutPage = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       coupon: "",
+      protectionPackage: "standard",
+      mileagePackageKm: "",
     },
   });
   const navigate = useNavigate();
@@ -91,8 +93,68 @@ const CheckoutPage = () => {
   //settting and checking coupon
   const [wrongCoupon, setWrongCoupon] = useState(false);
   const [discount, setDiscount] = useState(0);
+  const [rentalAddOns, setRentalAddOns] = useState([]);
+  const [selectedAddOns, setSelectedAddOns] = useState([]);
+  const [bookingQuote, setBookingQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState("");
 
   const couponValue = watch("coupon");
+  const protectionPackage = watch("protectionPackage") || "standard";
+  const mileagePackageKm = Number(watch("mileagePackageKm") || 0);
+
+  useEffect(() => {
+    let active = true;
+    getRentalAddOns()
+      .then((addOns) => active && setRentalAddOns(addOns))
+      .catch(() => active && setRentalAddOns([]));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!vehicle_id || !pickupDateValue || !dropoffDateValue) return undefined;
+
+    let active = true;
+    setQuoteError("");
+    quoteBooking({
+      vehicle_id,
+      pickupDate: pickupDateValue,
+      dropoffDate: dropoffDateValue,
+      pickup_district: pickup_district || singleVehicleDetail?.district,
+      pickup_location: pickup_location || singleVehicleDetail?.location,
+      dropoff_location: dropoff_location || singleVehicleDetail?.location,
+      dailyPrice: price,
+      coupon: couponValue,
+      addOnCodes: selectedAddOns,
+      mileagePackageKm,
+      protectionPackage,
+    })
+      .then((quote) => active && setBookingQuote(quote))
+      .catch((error) => {
+        if (!active) return;
+        setBookingQuote(null);
+        setQuoteError(error.message || "Could not calculate this booking");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    vehicle_id,
+    pickupDateValue,
+    dropoffDateValue,
+    pickup_district,
+    pickup_location,
+    dropoff_location,
+    singleVehicleDetail?.district,
+    singleVehicleDetail?.location,
+    couponValue,
+    selectedAddOns,
+    mileagePackageKm,
+    protectionPackage,
+  ]);
+
   const handleCoupon = () => {
     setWrongCoupon(false);
     if (couponValue === "KARIBU10000") {
@@ -104,9 +166,21 @@ const CheckoutPage = () => {
   };
 
   //calculateing total price after coupon
-  const rentalDays = Number.isFinite(Days) && Days > 0 ? Days : 1;
-  const deliveryFee = 10000;
-  const totalPrice = price * rentalDays + deliveryFee - discount;
+  const rentalDays = bookingQuote?.rental_days || (Number.isFinite(Days) && Days > 0 ? Days : 1);
+  const deliveryFee = Number(bookingQuote?.delivery_fee ?? 10000);
+  const oneWayFee = Number(bookingQuote?.one_way_fee || 0);
+  const addOnsTotal = Number(bookingQuote?.add_ons_total || 0);
+  const protectionFee = Number(bookingQuote?.protection_fee || 0);
+  const mileageFee = Number(bookingQuote?.mileage_fee || 0);
+  const quoteDiscount = Number(bookingQuote?.discount ?? discount);
+  const totalPrice = Number(bookingQuote?.total_price ?? price * rentalDays + deliveryFee - discount);
+
+  const toggleAddOn = (code) => {
+    setSelectedAddOns((current) =>
+      current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
+    );
+  };
+
   //handle place order data
   const handlePlaceOrder = async (formValues) => {
     const orderData = {
@@ -117,7 +191,11 @@ const CheckoutPage = () => {
       pickup_district: pickup_district || singleVehicleDetail?.district,
       pickup_location: pickup_location || singleVehicleDetail?.location,
       dropoff_location: dropoff_location || singleVehicleDetail?.location,
+      dailyPrice: price,
       ...formValues,
+      addOnCodes: selectedAddOns,
+      mileagePackageKm,
+      protectionPackage,
     };
 
     try {
@@ -401,6 +479,66 @@ const CheckoutPage = () => {
                 )}
               </div>
 
+              <div>
+                <TextField
+                  id="protectionPackage"
+                  label="Protection Package"
+                  variant="outlined"
+                  select
+                  defaultValue="standard"
+                  {...register("protectionPackage")}
+                  className="w-full"
+                >
+                  <MenuItem value="standard">Standard included</MenuItem>
+                  <MenuItem value="plus">Plus protection</MenuItem>
+                  <MenuItem value="premium">Premium protection</MenuItem>
+                </TextField>
+              </div>
+
+              <div>
+                <TextField
+                  id="mileagePackageKm"
+                  label="Mileage Package"
+                  variant="outlined"
+                  select
+                  defaultValue=""
+                  {...register("mileagePackageKm")}
+                  className="w-full"
+                >
+                  <MenuItem value="">Standard mileage</MenuItem>
+                  <MenuItem value="1000">1,000 km package</MenuItem>
+                  <MenuItem value="2000">2,000 km package</MenuItem>
+                </TextField>
+              </div>
+
+              {rentalAddOns.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="mb-3 text-sm font-semibold text-gray-900">Trip add-ons</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {rentalAddOns.map((addOn) => (
+                      <label
+                        className="flex cursor-pointer items-start gap-3 rounded-md border border-gray-100 p-3 text-sm"
+                        key={addOn.code}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={selectedAddOns.includes(addOn.code)}
+                          onChange={() => toggleAddOn(addOn.code)}
+                        />
+                        <span>
+                          <span className="block font-medium text-gray-900">{addOn.name}</span>
+                          <span className="block text-xs text-gray-500">
+                            {formatTZS(addOn.price_amount)}
+                            {addOn.price_type === "per_day" ? " / day" : ""}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* PinCode */}
               <div>
                 <div className="flex gap-6">
@@ -430,6 +568,12 @@ const CheckoutPage = () => {
               </div>
             </div>
 
+            {quoteError && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {quoteError}
+              </div>
+            )}
+
             {/* Total */}
             <div className="mt-6 border-t border-b py-2">
               <div className="flex items-center justify-between">
@@ -444,10 +588,45 @@ const CheckoutPage = () => {
                 <p className="text-sm font-medium text-gray-900">Pickup support</p>
                 <p className="font-semibold text-gray-900">{formatTZS(deliveryFee)}</p>
               </div>
+              {oneWayFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">Different return location</p>
+                  <p className="font-semibold text-gray-900">{formatTZS(oneWayFee)}</p>
+                </div>
+              )}
+              {protectionFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">Protection package</p>
+                  <p className="font-semibold text-gray-900">{formatTZS(protectionFee)}</p>
+                </div>
+              )}
+              {mileageFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">Mileage package</p>
+                  <p className="font-semibold text-gray-900">{formatTZS(mileageFee)}</p>
+                </div>
+              )}
+              {addOnsTotal > 0 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">Add-ons</p>
+                  <p className="font-semibold text-gray-900">{formatTZS(addOnsTotal)}</p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-900">Coupon</p>
-                <p className="font-semibold text-gray-900">{formatTZS(discount)}</p>
+                <p className="text-sm font-medium text-gray-900">Discounts</p>
+                <p className="font-semibold text-gray-900">{formatTZS(quoteDiscount)}</p>
               </div>
+              {bookingQuote?.deposit_amount > 0 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">Refundable deposit estimate</p>
+                  <p className="font-semibold text-gray-900">{formatTZS(bookingQuote.deposit_amount)}</p>
+                </div>
+              )}
+              {bookingQuote?.rental_product === "long_term" && (
+                <div className="mt-2 rounded-md bg-green-50 p-2 text-xs text-green-700">
+                  Long-term rental pricing is active for this booking.
+                </div>
+              )}
             </div>
             <div className="mt-6 flex items-center justify-between">
               <p className="text-sm font-medium text-gray-900">Total</p>

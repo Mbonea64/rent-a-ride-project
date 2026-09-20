@@ -6,6 +6,7 @@ import { Link, Route, Routes } from "react-router-dom";
 import Orders from "./Orders";
 import UserProfileContent from "../../components/UserProfileContent";
 import Favorites from "./Favorites";
+import NotificationsPage from "../../components/NotificationsPage";
 import { IoArrowBackCircleSharp } from "react-icons/io5";
 import { showSidebarOrNot } from "../../redux/adminSlices/adminDashboardSlice/DashboardSlice";
 import { IoMenu } from "react-icons/io5";
@@ -74,6 +75,7 @@ function Profile() {
                 <Route path="/profiles" element={<UserProfileContent />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/favorites" element={<Favorites />} />
+                <Route path="/notifications" element={<NotificationsPage role="customer" />} />
               </Routes>
             </div>
           </div>

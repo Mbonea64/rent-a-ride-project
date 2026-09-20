@@ -1,9 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  deleteUserStart,
-  deleteUserSuccess,
-  deleteUserFailure,
   signOut,
 } from "../redux/user/userSlice";
 import { SiShopware } from "react-icons/si";
@@ -12,16 +9,13 @@ import { MdOutlineCancel } from "react-icons/md";
 import { links } from "./UserSidebarContent";
 import { showSidebarOrNot } from "../redux/adminSlices/adminDashboardSlice/DashboardSlice";
 import { CiLogout } from "react-icons/ci";
-import { deleteCurrentAccount, signOutFromSupabase } from "../services/authService";
+import { signOutFromSupabase } from "../services/authService";
+import SidebarNotificationLink from "./SidebarNotificationLink";
 
 
 const UserProfileSidebar = () => {
   const { activeMenu, screenSize } = useSelector(
     (state) => state.adminDashboardSlice
-  );
-
-  const { isLoading } = useSelector(
-    (state) => state.user
   );
 
   const navigate = useNavigate();
@@ -38,19 +32,6 @@ const UserProfileSidebar = () => {
     await signOutFromSupabase();
     dispatch(signOut());
     navigate("/signin");
-  };
-
-  const handleDelete = async () => {
-    dispatch(deleteUserStart());
-    try {
-      await deleteCurrentAccount();
-      localStorage.removeItem("persist:root");
-      dispatch(deleteUserSuccess());
-      navigate("/signup");
-    } catch (error) {
-      console.error("Could not delete account", error);
-      dispatch(deleteUserFailure(error));
-    }
   };
 
   return (
@@ -93,15 +74,14 @@ const UserProfileSidebar = () => {
                     }
                   >
                     {link.icon}
-                    <span className="capitalize text-gray-600">
-                      {link.name}
+                    <span className="text-gray-600">
+                      {link.label || link.name}
                     </span>
                   </NavLink>
                 ))}
               </div>
             ))}
-
-            <div className="flex flex-col gap-y-5">
+            <SidebarNotificationLink role="customer" />
 
             <div className="flex items-center mt-10 gap-2">
                 <button
@@ -113,19 +93,6 @@ const UserProfileSidebar = () => {
                 </button>
                 <CiLogout />
               </div>
-              <div className="ml-4">
-              <button
-                className="text-red-400"
-                onClick={handleDelete}
-                type="button"
-              >
-                {isLoading ? "Loading..." : "Delete User"}
-              </button>
-              </div>
-              
-
-              
-            </div>
           </div>
         </>
       )}

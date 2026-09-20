@@ -13,6 +13,8 @@ import {
 import { useSelector } from "react-redux";
 import AdminHomeMain from "../pages/AdminHomeMain.jsx";
 import Bookings from "../components/Bookings.jsx";
+import NotificationsPage from "../../../components/NotificationsPage.jsx";
+import SalesDashboard from "../pages/SalesDashboard.jsx";
 
 function AdminDashNew() {
   const { activeMenu } = useSelector((state) => state.adminDashboardSlice);
@@ -53,6 +55,8 @@ function AdminDashNew() {
               <Route path="/editor" element={<Editor />} />
               <Route path="/vendorVehicleRequests" element={<VenderVehicleRequests />} />
               <Route path="/orders" element={<Bookings />} />
+              <Route path="/sales" element={<SalesDashboard />} />
+              <Route path="/notifications" element={<NotificationsPage role="admin" />} />
 
             </Routes>
           </div>

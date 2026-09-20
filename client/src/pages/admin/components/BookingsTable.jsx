@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { DataGrid } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import { getBookings, setBookingStatus } from "../../../services/bookingService";
+import { getDemoVendorForBooking } from "../../../services/demoOpsService";
+import { getBookingLifecycleLabel, isBookingPaid } from "../../../services/notificationService";
 
 const BookingsTable = () => {
   const [bookings, setBookings] = useState([]);
@@ -72,6 +74,25 @@ const BookingsTable = () => {
       width: 150,
     },
     {
+      field: "Vendor",
+      headerName: "Assigned Vendor",
+      width: 190,
+    },
+    {
+      field: "Payment",
+      headerName: "Payment",
+      width: 170,
+      renderCell: (params) => (
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            params.row.isPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+          }`}
+        >
+          {params.value}
+        </span>
+      ),
+    },
+    {
       field: "Vehicle_Status",
       headerName: "Vehicle Status",
       width: 150,
@@ -116,6 +137,9 @@ const BookingsTable = () => {
       Pickup_Date: new Date(cur.pickupDate),
       Dropoff_Location: cur.dropOffLocation,
       Dropoff_Date: new Date(cur.dropOffDate),
+      Vendor: getDemoVendorForBooking(cur).name,
+      Payment: getBookingLifecycleLabel(cur),
+      isPaid: isBookingPaid(cur),
       Vehicle_Status: cur.status,
       Change_Status: [
         "notBooked",

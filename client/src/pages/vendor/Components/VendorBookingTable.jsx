@@ -1,252 +1,225 @@
 import { useEffect, useState } from "react";
-import { IoMdTime } from "react-icons/io";
-import { CiCalendarDate } from "react-icons/ci";
-import { CiLocationOn } from "react-icons/ci";
 import { useDispatch } from "react-redux";
+import { FiEye } from "react-icons/fi";
 import VendorBookingDetailModal from "./VendorBookingModal";
-import { IoIosArrowDown } from "react-icons/io";
 import { setVendorOrderModalOpen, setVendorSingleOrderDetails } from "../../../redux/vendor/vendorBookingSlice";
 import { formatTZS } from "../../../data/localData";
 import { getBookings, setBookingStatus } from "../../../services/bookingService";
+import { shouldShowInVendorDashboard } from "../../../services/demoOpsService";
+import { getBookingLifecycleLabel, isBookingPaid } from "../../../services/notificationService";
 import { getVendorVehicles } from "../../../services/vehicleService";
 
+const statusOptions = [
+  "notBooked",
+  "booked",
+  "onTrip",
+  "notPicked",
+  "canceled",
+  "overDue",
+  "tripCompleted",
+];
+
+const statusClass = (status) => {
+  if (status === "canceled") return "bg-red-100 text-red-700";
+  if (status === "onTrip") return "bg-sky-100 text-sky-700";
+  if (status === "tripCompleted") return "bg-emerald-100 text-emerald-700";
+  if (status === "overDue") return "bg-amber-100 text-amber-800";
+  return "bg-slate-100 text-slate-700";
+};
+
+const formatDateTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const VendorBookingsTable = () => {
-  const [bookings, setBookings] = useState("");
-  const [vendorVehicles, setVendorVehicles] = useState("");
-  const [filtered, setFilteredBookings] = useState("");
+  const [bookings, setBookings] = useState([]);
+  const [vendorVehicles, setVendorVehicles] = useState([]);
+  const [filtered, setFilteredBookings] = useState([]);
+  const [busyBookingId, setBusyBookingId] = useState(null);
   const dispatch = useDispatch();
-
-  const optionsValue = [
-    "notBooked",
-    "booked",
-    "onTrip",
-    "notPicked",
-    "canceled",
-    "overDue",
-    "tripCompleted",
-  ];
 
   useEffect(() => {
     let active = true;
     getVendorVehicles()
-      .then((data) => active && setVendorVehicles(data))
+      .then((data) => active && setVendorVehicles(data || []))
       .catch((error) => console.error("Error fetching vendor vehicles:", error));
     return () => {
       active = false;
     };
   }, []);
 
-  // fetching all bookings
   const fetchBookings = async () => {
     try {
       const data = await getBookings();
-      if (data) {
-        setBookings(data);
-      }
+      setBookings(data || []);
     } catch (error) {
-      console.log(error);
+      console.error("Error fetching vendor bookings:", error);
     }
   };
 
-  const handleStatusChange = (e, bookingid) => {
-    const newStatus = e.target.value;
-    const bookingId = bookingid;
-
-    const changeVehicleStatus = async () => {
-      try {
-        await setBookingStatus(bookingId, newStatus);
-        fetchBookings();
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    changeVehicleStatus();
-  };
-
-  //all bookings
   useEffect(() => {
     fetchBookings();
+    window.addEventListener("rent-a-ride-demo-reset", fetchBookings);
+    return () => {
+      window.removeEventListener("rent-a-ride-demo-reset", fetchBookings);
+    };
   }, []);
 
   useEffect(() => {
-    if (vendorVehicles.length > 0 && bookings.length > 0) {
-      const availableVehicleIds = vendorVehicles.map((vehicle) => vehicle._id);
-      const filtered = bookings.filter((booking) =>
-        availableVehicleIds.includes(booking.vehicleId)
-      );
-      setFilteredBookings(filtered);
-    }
+    setFilteredBookings(
+      bookings.filter(
+        (booking) =>
+          shouldShowInVendorDashboard(booking, vendorVehicles) &&
+          !["canceled", "tripCompleted"].includes(booking.status)
+      )
+    );
   }, [vendorVehicles, bookings]);
 
-  const handleDetailsModal = (cur) => {
-    
+  const handleStatusChange = async (event, bookingId) => {
+    try {
+      setBusyBookingId(bookingId);
+      await setBookingStatus(bookingId, event.target.value);
+      await fetchBookings();
+    } catch (error) {
+      console.error("Could not update booking status", error);
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const handleDetailsModal = (booking) => {
     dispatch(setVendorOrderModalOpen(true));
-    dispatch(setVendorSingleOrderDetails(cur));
+    dispatch(setVendorSingleOrderDetails(booking));
   };
 
   return (
-    <>
-      <div className="max-w-4xl mx-auto pb-20">
-        <VendorBookingDetailModal />
+    <div className="w-full max-w-none pb-20">
+      <VendorBookingDetailModal />
 
-        <div className="text-sm text-gray-600 mb-8">
-          {filtered && filtered.length > 0 ? (
-            "Check out all of your Bookings"
-          ) : (
-            <div className="font-extrabold text-black flex justify-center items-center min-h-[500px]">
-              No Bookings Yet
-            </div>
-          )}
+      <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Reservations</p>
+          <h2 className="text-2xl font-semibold text-slate-950">Rented Cars</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Track payment, schedule, and fulfillment status for vehicles from your fleet.
+          </p>
         </div>
-        <div className="mb-8">
-          {filtered &&
-            filtered.length > 0 &&
-            filtered.map((cur, idx) => {
-              const pickupDate = new Date(cur.pickupDate);
-              const dropoffDate = new Date(cur.dropOffDate);
-
-              return (
-                <div
-                  className="box-shadow-md drop-shadow-md border border-1px rounded-lg p-4 md:px-10 md:py-5 mb-4"
-                  key={idx}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-6 ">
-                    <div className="mb-4">
-                      <img
-                        alt={cur.vehicleDetails.name}
-                        className="w-full h-auto bg-gray-100  "
-                        height="200"
-                        src={cur.vehicleDetails.image[0]}
-                        style={{
-                          aspectRatio: "200/200",
-                          objectFit: "contain",
-                        }}
-                        width="200"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <h3 className="text-lg font-semibold mb-1">{cur._id}</h3>
-                      <p className="text-gray-600 mb-2">
-                        <span className="font-bold">Id</span> : {cur._id}
-                      </p>
-                      <p className="text-lg font-semibold mb-4 flex  items-center">
-                        {formatTZS(cur.totalPrice)}
-                      </p>
-                      <div className="flex justify-between">
-                        <div className="">
-                          <div className="mt-2 font-medium underline underline-offset-4 mb-5">
-                            Pick up
-                          </div>
-                          <div className="mt-2 capitalize">
-                            <p className="text-black text-sm mt-2 leading-6 flex items-center gap-2">
-                              <span>
-                                <CiLocationOn />
-                              </span>
-                              {cur.pickUpLocation}
-                            </p>
-
-                            <div className="text-[14px] flex flex-col justify-start items-start  pr-2 gap-2 mt-2">
-                              <div className="flex justify-between gap-2 items-center">
-                                <span>
-                                  <CiCalendarDate style={{ fontSize: 15 }} />
-                                </span>
-                                {
-                                  <>
-                                    <span> {pickupDate.getDate()}: </span>
-                                    <span>{pickupDate.getMonth()} : </span>
-                                    <span>{pickupDate.getFullYear()} </span>
-                                  </>
-                                }
-                              </div>
-                              <div className="flex justify-center items-center gap-2">
-                                <span>
-                                  <IoMdTime style={{ fontSize: 16 }} />
-                                </span>
-                                <span></span>
-                                {pickupDate.getHours()}:
-                                <span>{pickupDate.getMinutes()}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="">
-                          <div className="mt-2 font-medium underline underline-offset-4 mb-5">
-                            Drop off
-                          </div>
-
-                          <div className="mt-2">
-                            <p className="text-black text-sm leading-6 mt-2 capitalize flex items-center gap-2">
-                              <span>
-                                <CiLocationOn />
-                              </span>
-                              {cur.dropOffLocation}
-                            </p>
-
-                            <div className="text-[14px] flex flex-col justify-start items-start pr-2 gap-2 mt-2">
-                              <div className="flex  justify-between gap-2 items-center">
-                                <span>
-                                  <CiCalendarDate style={{ fontSize: 15 }} />
-                                </span>
-                                <span>{dropoffDate.getDate()} : </span>
-                                <span>{dropoffDate.getMonth()} : </span>
-                                <span>{dropoffDate.getFullYear()} </span>
-                              </div>
-                              <div className="flex justify-center items-center gap-2">
-                                <span>
-                                  <IoMdTime style={{ fontSize: 16 }} />
-                                </span>
-                                <span>{dropoffDate.getHours()} </span>:
-                                <span>{dropoffDate.getMinutes()} </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-y-4 items-start  lg:flex-row lg:items-center lg:justify-between mt-10">
-                        <div className="flex flex-row gap-3 items-start  md:items-center justify-between">
-                          <button
-                            className="text-white bg-black hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 px-6 py-3 text-[12px] md:px-10 md:py-2 md:text-[14px] font-medium capitalize  rounded-lg "
-                            onClick={() => handleDetailsModal(cur)}
-                          >
-                            Details
-                          </button>
-                          <div className="flex items-center justify-end ">
-                            <div className="bg-green-500 px-5 py-3 text-[12px] md:px-10 md:py-2 md:text-[14px] font-medium capitalize rounded-lg">
-                              {cur.status}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="relative">
-                          <select
-                            className="px-4 py-2 appearance-none capitalize drop-shadow-md border  rounded-md text-[12px] md:text-[14px]"
-                            value={optionsValue.selectedValue}
-                            onChange={(e) => {
-                              handleStatusChange(e,cur._id);
-                            }}
-                          >
-                            {optionsValue.map((cur, idx) => (
-                              <option key={idx} value={cur}>
-                                {cur}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute top-[10px] right-1 z-888">
-                            <IoIosArrowDown />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
+        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+          {filtered.length} bookings
+        </span>
       </div>
-    </>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-600">
+          No bookings yet
+        </div>
+      ) : (
+        <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-[1180px] w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Vehicle</th>
+                  <th className="px-4 py-3">Car location</th>
+                  <th className="px-4 py-3">Booking</th>
+                  <th className="px-4 py-3">Schedule</th>
+                  <th className="px-4 py-3">Trip</th>
+                  <th className="px-4 py-3">Payment</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((booking) => (
+                  <tr className="align-top transition hover:bg-slate-50" key={booking._id}>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          alt={booking.vehicleDetails?.name || "Vehicle"}
+                          className="h-14 w-20 rounded-md bg-slate-100 object-contain"
+                          src={booking.vehicleDetails?.image?.[0]}
+                        />
+                        <div>
+                          <p className="font-semibold text-slate-950">
+                            {booking.vehicleDetails?.company} {booking.vehicleDetails?.model || booking.vehicleDetails?.name}
+                          </p>
+                          <p className="text-xs text-slate-500">{booking.vehicleDetails?.registeration_number}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-medium text-slate-800">
+                        {booking.vehicleDetails?.location || booking.vehicleDetails?.district || "Not set"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {booking.vehicleDetails?.district || "Base location"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-slate-950">{String(booking._id).slice(0, 8).toUpperCase()}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatTZS(booking.totalPrice)}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-medium text-slate-800">{formatDateTime(booking.pickupDate)}</p>
+                      <p className="mt-1 text-xs text-slate-500">to {formatDateTime(booking.dropOffDate)}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="max-w-[180px] truncate font-medium text-slate-800">{booking.pickUpLocation}</p>
+                      <p className="mt-1 max-w-[180px] truncate text-xs text-slate-500">to {booking.dropOffLocation}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          isBookingPaid(booking) ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {getBookingLifecycleLabel(booking)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(booking.status)}`}>
+                        {booking.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white transition hover:bg-slate-800"
+                          onClick={() => handleDetailsModal(booking)}
+                          title="View details"
+                          type="button"
+                        >
+                          <FiEye />
+                        </button>
+                        <select
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium capitalize text-slate-700 disabled:opacity-60"
+                          disabled={busyBookingId === booking._id}
+                          value={booking.status}
+                          onChange={(event) => handleStatusChange(event, booking._id)}
+                        >
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

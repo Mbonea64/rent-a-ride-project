@@ -1,6 +1,5 @@
-import { FiShoppingBag } from "react-icons/fi";
 import { IoHomeOutline } from "react-icons/io5";
-import { CiHeart } from "react-icons/ci";
+import { FiCalendar } from "react-icons/fi";
 
 export const links = [
   {
@@ -8,18 +7,14 @@ export const links = [
     links: [
       {
         name: "profiles",
+        label: "Profile",
         icon: <IoHomeOutline />,
       },
       {
         name: "orders",
-        icon: <CiHeart />
+        label: "Bookings",
+        icon: <FiCalendar />
       },
-      {
-        name: "favorites",
-        icon: <FiShoppingBag />,
-      },
-
-     
     ],
   },
 ];

@@ -1,6 +1,8 @@
 import { requireSupabase } from "../lib/supabase";
 
 const vehicleSelect = "*, vehicle_images(id, storage_path, public_url, position)";
+const adminVehicleSelect =
+  "*, owner:profiles!vehicles_owner_id_fkey(id, username, phone_number, role), vehicle_images(id, storage_path, public_url, position)";
 
 const publicImageUrl = (image) => {
   if (image.public_url) return image.public_url;
@@ -30,6 +32,7 @@ export const toAppVehicle = (vehicle) => {
     isRejected: vehicle.approval_status === "rejected",
     isAdminAdded: vehicle.is_admin_added,
     addedBy: vehicle.owner_id,
+    ownerProfile: vehicle.owner || null,
     insurance_end: vehicle.insurance_expires_on,
     registeration_end: vehicle.registration_expires_on,
     pollution_end: vehicle.pollution_certificate_expires_on,
@@ -67,10 +70,17 @@ export const getPublicVehicles = () =>
       .order("created_at", { ascending: false })
   );
 
-export const getAllVehicles = () =>
-  runVehicleQuery(
-    requireSupabase().from("vehicles").select(vehicleSelect).order("created_at", { ascending: false })
-  );
+export const getAllVehicles = async () => {
+  try {
+    return await runVehicleQuery(
+      requireSupabase().from("vehicles").select(adminVehicleSelect).order("created_at", { ascending: false })
+    );
+  } catch (error) {
+    return runVehicleQuery(
+      requireSupabase().from("vehicles").select(vehicleSelect).order("created_at", { ascending: false })
+    );
+  }
+};
 
 export const getVendorVehicles = async () => {
   const client = requireSupabase();
@@ -90,15 +100,27 @@ export const getVendorVehicles = async () => {
   );
 };
 
-export const getPendingVehicles = () =>
-  runVehicleQuery(
-    requireSupabase()
-      .from("vehicles")
-      .select(vehicleSelect)
-      .eq("approval_status", "pending")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true })
-  );
+export const getPendingVehicles = async () => {
+  try {
+    return await runVehicleQuery(
+      requireSupabase()
+        .from("vehicles")
+        .select(adminVehicleSelect)
+        .eq("approval_status", "pending")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+    );
+  } catch (error) {
+    return runVehicleQuery(
+      requireSupabase()
+        .from("vehicles")
+        .select(vehicleSelect)
+        .eq("approval_status", "pending")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+    );
+  }
+};
 
 export const getVehicle = async (id) => {
   const { data, error } = await requireSupabase()

@@ -89,6 +89,24 @@ function AllVehicles() {
     },
     { field: "company", headerName: "Company", width: 150 },
     { field: "name", headerName: "Name", width: 150 },
+    { field: "location", headerName: "Vehicle Location", width: 180 },
+    {
+      field: "ownership",
+      headerName: "Ownership",
+      width: 170,
+      renderCell: (params) => (
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            params.row.isCompanyFleet
+              ? "bg-slate-100 text-slate-700"
+              : "bg-sky-100 text-sky-700"
+          }`}
+        >
+          {params.value}
+        </span>
+      ),
+    },
+    { field: "owner", headerName: "Owner", width: 170 },
     {
       field: "edit",
       headerName: "Edit",
@@ -121,6 +139,12 @@ function AllVehicles() {
       registeration_number: vehicle.registeration_number,
       company: vehicle.company,
       name: vehicle.name,
+      location: [vehicle.location, vehicle.district].filter(Boolean).join(", ") || "Not set",
+      ownership: vehicle.isAdminAdded ? "Company fleet" : "Vendor fleet",
+      owner: vehicle.isAdminAdded
+        ? "Rent a Ride"
+        : vehicle.ownerProfile?.username || vehicle.addedBy || "Vendor account",
+      isCompanyFleet: vehicle.isAdminAdded,
     }));
 
   //edit success
@@ -152,8 +176,8 @@ function AllVehicles() {
         {adminCrudError ? <Toaster/> : ""}     
         
         
-      <div className="max-w-[1000px]  d-flex   justify-end text-start items-end p-10">
-        <Header title="AllVehicles" />
+      <div className="max-w-[1100px] d-flex justify-end text-start items-end p-10">
+        <Header category="Fleet" title="Vehicle Inventory" />
         <Box sx={{ height: "100%", width: "100%" }}>
           <DataGrid
             rows={rows}

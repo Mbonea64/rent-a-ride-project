@@ -6,6 +6,7 @@ import { RxHamburgerMenu } from "react-icons/rx";
 import { MdMenuOpen } from "react-icons/md";
 import { useState } from "react";
 import { Drawer } from "antd";
+import ProfileAvatar from "./ProfileAvatar";
 
 
 function Header() {
@@ -59,11 +60,13 @@ function Header() {
         <div className="hidden lg:flex items-center justify-center">
           {currentUser && !currentUser.isAdmin && !currentUser.isVendor ? (
             <Link to={"/profile"}>
-              <img
+              <ProfileAvatar
+                email={currentUser.email}
+                name={currentUser.username}
+                role="customer"
                 src={`${currentUser.profilePicture}`}
-                alt="fsd"
-                referrerPolicy="no-referrer"
-                className="h-10 w-10 rounded-[50%] object-cover"
+                className="h-10 w-10"
+                size={40}
               />
             </Link>
           ) : (

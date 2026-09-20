@@ -1,34 +1,25 @@
-
-
-import { FiShoppingBag,  } from 'react-icons/fi';
-
+import { FiCalendar, FiTruck } from "react-icons/fi";
 import { IoHomeOutline } from "react-icons/io5";
 
-
-
-
-
 export const links = [
-    {
-      title: 'Dashboard',
-      links: [
-        {
-          name:'adminHome',
-          icon:<IoHomeOutline />,
-        },
-        {
-          name: 'vendorAllVeihcles',
-          icon: <FiShoppingBag />,
-        },
-        {
-          name: 'Bookings',
-          icon: <FiShoppingBag />,
-        },
-        
-      ],
-    },
-  
-    
-     
-    ];
-    
+  {
+    title: "Vendor Flow",
+    links: [
+      {
+        name: "overview",
+        label: "Overview",
+        icon: <IoHomeOutline />,
+      },
+      {
+        name: "vendorAllVeihcles",
+        label: "My cars",
+        icon: <FiTruck />,
+      },
+      {
+        name: "bookings",
+        label: "Bookings",
+        icon: <FiCalendar />,
+      },
+    ],
+  },
+];

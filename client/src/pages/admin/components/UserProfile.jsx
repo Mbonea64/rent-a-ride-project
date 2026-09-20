@@ -1,19 +1,32 @@
 import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { toggleNavbarPage } from "../../../redux/adminSlices/adminDashboardSlice/DashboardSlice";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 
 const UserProfile = () => {
   const dispatch = useDispatch()
+  const currentUser = useSelector((state) => state.user.currentUser);
+  const displayName = currentUser?.username || "Admin";
   return (
     <div className=" dark:text-gray-200  dark:bg-secondary-dark-bg  rounded-xl w-[250px]  p-5 absolute top-0 right-0   bg-no-repeat   bg-blue-50 h-44  ">
       <div>
         <div className="flex justify-between w-full items-center gap-20">
-          <p className="font-bold text-gray-400">Jeevan</p>
+          <div className="flex items-center gap-2">
+            <ProfileAvatar
+              email={currentUser?.email}
+              name={displayName}
+              role={currentUser?.isVendor ? "vendor" : "admin"}
+              src={currentUser?.profilePicture}
+              size={32}
+            />
+            <p className="font-bold text-gray-600">{displayName}</p>
+          </div>
           <button className="text-black " onClick={()=> dispatch(toggleNavbarPage('userProfile'))}>
             <div className="hover:bg-slate-200  px-3 py-1 rounded-full">x</div>
           </button>
         </div>
 
-        <p className="text-2xl text-black">hi</p>
+        <p className="mt-4 text-sm text-gray-600">{currentUser?.email || "Dashboard profile"}</p>
       </div>
     </div>
   );
