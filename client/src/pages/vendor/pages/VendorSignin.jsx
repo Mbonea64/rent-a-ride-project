@@ -7,10 +7,12 @@ import {
 } from "../../../redux/user/userSlice";
 import styles from "../../..";
 import VendorOAuth from "../../../components/VendorAuth";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signInWithPassword } from "../../../services/authService";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const schema = z.object({
   email: z
@@ -23,6 +25,7 @@ const schema = z.object({
 });
 
 function VendorSignin() {
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -72,7 +75,7 @@ function VendorSignin() {
         >
           <div>
             <input
-              type="password"
+              type="email"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"
@@ -84,13 +87,23 @@ function VendorSignin() {
           </div>
 
           <div>
+            <div className="relative">
             <input
-              type="text"
+              type={showPassword ? "text" : "password"}
               id="password"
-              className="text-black bg-slate-100 p-3 rounded-md w-full"
+              className="w-full rounded-md bg-slate-100 p-3 pr-12 text-black"
               placeholder="Password"
               {...register("password")}
             />
+            <button
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-600 hover:bg-slate-200"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+            </div>
             {errors.password && (
               <p className="text-red-500 text-[10px]">
                 {errors.password.message}

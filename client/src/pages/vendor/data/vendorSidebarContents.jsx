@@ -1,4 +1,4 @@
-import { FiCalendar, FiTruck } from "react-icons/fi";
+import { FiCalendar, FiDollarSign, FiTruck } from "react-icons/fi";
 import { IoHomeOutline } from "react-icons/io5";
 
 export const links = [
@@ -19,6 +19,11 @@ export const links = [
         name: "bookings",
         label: "Bookings",
         icon: <FiCalendar />,
+      },
+      {
+        name: "sales",
+        label: "Sales",
+        icon: <FiDollarSign />,
       },
     ],
   },

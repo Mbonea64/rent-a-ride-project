@@ -10,15 +10,22 @@ const VendorHomeMain = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getVendorVehicles().catch(() => []), getBookings().catch(() => [])]).then(
-      ([vehicleData, bookingData]) => {
+    const load = () =>
+      Promise.all([getVendorVehicles().catch(() => []), getBookings().catch(() => [])]).then(([vehicleData, bookingData]) => {
         if (!active) return;
         setVehicles(vehicleData || []);
         setBookings(bookingData || []);
-      }
-    );
+      });
+
+    load();
+    window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
+      window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("storage", load);
     };
   }, []);
 

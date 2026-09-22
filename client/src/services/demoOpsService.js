@@ -1,3 +1,5 @@
+import { getDemoNow } from "./demoTimeService";
+
 const CHANNEL_KEY = "rent_a_ride_demo_ops_channel";
 
 export const demoVendors = [
@@ -40,6 +42,12 @@ const readChannel = () => {
 const writeChannel = (value) => {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(CHANNEL_KEY, JSON.stringify(value));
+  window.dispatchEvent(new Event("rent-a-ride-demo-ops"));
+};
+
+export const clearDemoOpsChannel = () => {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(CHANNEL_KEY);
   window.dispatchEvent(new Event("rent-a-ride-demo-ops"));
 };
 
@@ -108,16 +116,63 @@ const getBookingDates = (booking = {}) => {
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+const regionCoordinates = {
+  "Dar es Salaam": { lat: -6.7924, lng: 39.2083 },
+  Arusha: { lat: -3.3869, lng: 36.683 },
+  Zanzibar: { lat: -6.1659, lng: 39.2026 },
+  Mwanza: { lat: -2.5164, lng: 32.9175 },
+  Dodoma: { lat: -6.163, lng: 35.7516 },
+};
+
+const locationCoordinates = {
+  "Julius Nyerere International Airport": { lat: -6.8781, lng: 39.2026 },
+  Masaki: { lat: -6.7535, lng: 39.2746 },
+  "Mlimani City": { lat: -6.7712, lng: 39.2224 },
+  Kariakoo: { lat: -6.8205, lng: 39.2764 },
+  "Arusha Airport": { lat: -3.3678, lng: 36.6333 },
+  Clocktower: { lat: -3.37, lng: 36.6947 },
+  Njiro: { lat: -3.4286, lng: 36.7073 },
+  "Abeid Amani Karume Airport": { lat: -6.222, lng: 39.2249 },
+  "Stone Town": { lat: -6.1622, lng: 39.1921 },
+  "Mwanza Airport": { lat: -2.4445, lng: 32.9327 },
+  "Rock City Mall": { lat: -2.5167, lng: 32.9 },
+  "Dodoma Airport": { lat: -6.1704, lng: 35.7526 },
+  "Nyerere Square": { lat: -6.1629, lng: 35.7517 },
+};
+
+const getCoordinate = (location, district) =>
+  locationCoordinates[location] || regionCoordinates[district] || regionCoordinates["Dar es Salaam"];
+
 const getTripProgress = (booking) => {
   const { pickupDate, dropoffDate } = getBookingDates(booking);
   const duration = dropoffDate.getTime() - pickupDate.getTime();
   if (!Number.isFinite(duration) || duration <= 0) return 46;
-  return Math.round(clamp(((Date.now() - pickupDate.getTime()) / duration) * 100, 8, 96));
+  return Math.round(clamp(((getDemoNow() - pickupDate.getTime()) / duration) * 100, 8, 96));
 };
+
+const getVehicleGpsCoordinate = (booking, baseCoordinate) => {
+  const seed = hashText(booking._id || booking.id || booking.vehicle_id || booking.vehicleDetails?.model);
+  const elapsed = getDemoNow() / 1000;
+  const radius = 0.012 + (seed % 9) * 0.003;
+  const latWave = Math.sin(elapsed / (28 + (seed % 12)) + seed);
+  const lngWave = Math.cos(elapsed / (36 + (seed % 10)) + seed / 3);
+  return {
+    lat: baseCoordinate.lat + latWave * radius,
+    lng: baseCoordinate.lng + lngWave * radius,
+  };
+};
+
+const getGpsArea = (details, booking) =>
+  booking.vehicleDetails?.location ||
+  details.pickUpLocation ||
+  booking.pickUpLocation ||
+  booking.vehicleDetails?.district ||
+  details.pickUpDistrict ||
+  "Dar es Salaam";
 
 const getMinutesUntilDropoff = (booking) => {
   const { dropoffDate } = getBookingDates(booking);
-  return Math.round((dropoffDate.getTime() - Date.now()) / 60000);
+  return Math.round((dropoffDate.getTime() - getDemoNow()) / 60000);
 };
 
 export const buildDemoTrip = (booking) => {
@@ -130,9 +185,16 @@ export const buildDemoTrip = (booking) => {
   const approachingDeadline = isActive && minutesLeft <= 120 && minutesLeft > 0;
   const deadlineBreached = isActive && minutesLeft <= 0;
   const outsideBoundary = isActive && progress >= 78;
+  const speedKmh = isActive ? 18 + (hashText(booking._id || booking.id) % 48) : 0;
   const vehicleName = [booking.vehicleDetails?.company, booking.vehicleDetails?.model || booking.vehicleDetails?.name]
     .filter(Boolean)
     .join(" ");
+  const gpsArea = getGpsArea(details, booking);
+  const homeCoordinate = getCoordinate(
+    gpsArea,
+    details.pickUpDistrict || booking.pickUpDistrict || booking.vehicleDetails?.district
+  );
+  const currentCoordinate = getVehicleGpsCoordinate(booking, homeCoordinate);
 
   return {
     id: booking._id || booking.id || details._id,
@@ -141,6 +203,11 @@ export const buildDemoTrip = (booking) => {
     customer: details.contactPhone || "Customer",
     pickupLocation: details.pickUpLocation || booking.pickUpLocation || "Pickup point",
     dropoffLocation: details.dropOffLocation || booking.dropOffLocation || "Drop-off point",
+    gpsArea,
+    homeCoordinate,
+    currentCoordinate,
+    speedKmh,
+    lastSeen: new Date().toISOString(),
     status,
     progress,
     minutesLeft,
@@ -160,9 +227,9 @@ export const getCompanyMessageForTrip = (trip) => {
     return `Rent a Ride: Your ${trip.vehicleName} booking is due in about ${Math.max(trip.minutesLeft, 1)} minutes. Please prepare for return or request an extension.`;
   }
   if (trip.outsideBoundary) {
-    return `Rent a Ride: We noticed your ${trip.vehicleName} trip is close to the allowed travel boundary. Rent a Ride support is monitoring it.`;
+    return `Rent a Ride: We noticed your ${trip.vehicleName} GPS tracker is close to the allowed travel boundary. Rent a Ride support is monitoring the vehicle location.`;
   }
-  return `Rent a Ride: Your ${trip.vehicleName} booking is active. We will notify you before the deadline or if route support is needed.`;
+  return `Rent a Ride: Your ${trip.vehicleName} booking is active. The vehicle GPS is online near ${trip.gpsArea}, and we will notify you before the return deadline.`;
 };
 
 export const shouldShowInVendorDashboard = (booking, vendorVehicles = []) => {

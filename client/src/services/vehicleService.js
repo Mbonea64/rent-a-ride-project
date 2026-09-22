@@ -2,7 +2,7 @@ import { requireSupabase } from "../lib/supabase";
 
 const vehicleSelect = "*, vehicle_images(id, storage_path, public_url, position)";
 const adminVehicleSelect =
-  "*, owner:profiles!vehicles_owner_id_fkey(id, username, phone_number, role), vehicle_images(id, storage_path, public_url, position)";
+  "*, owner:profiles!vehicles_owner_id_fkey(id, username, email, phone_number, role), vehicle_images(id, storage_path, public_url, position)";
 
 const publicImageUrl = (image) => {
   if (image.public_url) return image.public_url;
@@ -10,12 +10,43 @@ const publicImageUrl = (image) => {
   return requireSupabase().storage.from("vehicle-images").getPublicUrl(image.storage_path).data.publicUrl;
 };
 
-export const toAppVehicle = (vehicle) => {
+const publicDocumentUrl = (document) => {
+  if (document.public_url) return document.public_url;
+  if (!document.storage_path) return "";
+  return requireSupabase().storage.from("vehicle-images").getPublicUrl(document.storage_path).data.publicUrl;
+};
+
+export const toAppVehicle = (vehicle, { includeDocuments = false } = {}) => {
   if (!vehicle) return null;
   const images = [...(vehicle.vehicle_images || [])]
     .sort((left, right) => left.position - right.position)
+    .filter((image) => Number(image.position) < 100)
     .map(publicImageUrl)
     .filter(Boolean);
+  const documentPositionTypes = {
+    100: "insurance",
+    101: "registration",
+    102: "pollution",
+  };
+  const documents = includeDocuments
+    ? [
+        ...(vehicle.vehicle_documents || []).map((document) => ({
+          ...document,
+          url: publicDocumentUrl(document),
+        })),
+        ...(vehicle.vehicle_images || [])
+          .filter((image) => Number(image.position) >= 100)
+          .map((image) => ({
+            ...image,
+            document_type: documentPositionTypes[Number(image.position)] || "document",
+            original_name: image.storage_path?.split("/").pop() || "Uploaded document",
+            url: publicImageUrl(image),
+          })),
+      ].filter(
+        (document, index, allDocuments) =>
+          allDocuments.findIndex((item) => item.document_type === document.document_type) === index
+      )
+    : [];
 
   return {
     ...vehicle,
@@ -36,6 +67,17 @@ export const toAppVehicle = (vehicle) => {
     insurance_end: vehicle.insurance_expires_on,
     registeration_end: vehicle.registration_expires_on,
     pollution_end: vehicle.pollution_certificate_expires_on,
+    odometerKm: vehicle.odometer_km,
+    vehicleCondition: vehicle.vehicle_condition,
+    ownershipStatus: vehicle.ownership_status,
+    inspectionStatus: vehicle.inspection_status,
+    trackerStatus: vehicle.tracker_status,
+    serviceHistory: vehicle.service_history,
+    paperworkStatus: vehicle.paperwork_status,
+    rentalNotes: vehicle.rental_notes,
+    lastServiceOn: vehicle.last_service_on,
+    documents,
+    vehicleDocuments: documents,
   };
 };
 
@@ -54,10 +96,10 @@ const attachImages = async (vehicles) => {
   }));
 };
 
-const runVehicleQuery = async (query) => {
+const runVehicleQuery = async (query, options) => {
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []).map(toAppVehicle);
+  return (data || []).map((vehicle) => toAppVehicle(vehicle, options));
 };
 
 export const getPublicVehicles = () =>
@@ -73,7 +115,8 @@ export const getPublicVehicles = () =>
 export const getAllVehicles = async () => {
   try {
     return await runVehicleQuery(
-      requireSupabase().from("vehicles").select(adminVehicleSelect).order("created_at", { ascending: false })
+      requireSupabase().from("vehicles").select(adminVehicleSelect).order("created_at", { ascending: false }),
+      { includeDocuments: true }
     );
   } catch (error) {
     return runVehicleQuery(
@@ -81,6 +124,8 @@ export const getAllVehicles = async () => {
     );
   }
 };
+
+const ownerVehicleSelect = vehicleSelect;
 
 export const getVendorVehicles = async () => {
   const client = requireSupabase();
@@ -91,13 +136,24 @@ export const getVendorVehicles = async () => {
   if (error) throw error;
   if (!user) throw new Error("Authentication required");
 
-  return runVehicleQuery(
-    client
-      .from("vehicles")
-      .select(vehicleSelect)
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-  );
+  try {
+    return await runVehicleQuery(
+      client
+        .from("vehicles")
+        .select(ownerVehicleSelect)
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false }),
+      { includeDocuments: true }
+    );
+  } catch (error) {
+    return runVehicleQuery(
+      client
+        .from("vehicles")
+        .select(vehicleSelect)
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false })
+    );
+  }
 };
 
 export const getPendingVehicles = async () => {
@@ -108,7 +164,8 @@ export const getPendingVehicles = async () => {
         .select(adminVehicleSelect)
         .eq("approval_status", "pending")
         .is("deleted_at", null)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: true }),
+      { includeDocuments: true }
     );
   } catch (error) {
     return runVehicleQuery(
@@ -225,6 +282,15 @@ const normalizeVehicleInput = (input, partial = false) => {
     base_package: getValue(input, "base_package"),
     district: getValue(input, "district", "vehicleDistrict"),
     location: getValue(input, "location", "vehicleLocation"),
+    odometer_km: getValue(input, "odometer_km", "mileage", "mileage_km"),
+    vehicle_condition: getValue(input, "vehicle_condition"),
+    ownership_status: getValue(input, "ownership_status"),
+    inspection_status: getValue(input, "inspection_status"),
+    tracker_status: getValue(input, "tracker_status"),
+    service_history: getValue(input, "service_history"),
+    paperwork_status: getValue(input, "paperwork_status"),
+    rental_notes: getValue(input, "rental_notes"),
+    last_service_on: toDateValue(getValue(input, "last_service_on", "last_service_date")),
     insurance_expires_on: toDateValue(getValue(input, "insurance_expires_on", "insurance_end_date")),
     registration_expires_on: toDateValue(getValue(input, "registration_expires_on", "registeration_end_date", "Registeration_end_date")),
     pollution_certificate_expires_on: toDateValue(getValue(input, "pollution_certificate_expires_on", "polution_end_date")),
@@ -235,15 +301,39 @@ const normalizeVehicleInput = (input, partial = false) => {
     values.price_per_day = Number(values.price_per_day);
     if (values.year_made) values.year_made = Number(values.year_made);
     if (values.seats) values.seats = Number(values.seats);
+    if (values.odometer_km) values.odometer_km = Number(values.odometer_km);
   }
   return values;
 };
 
+const isUploadFile = (item) =>
+  item &&
+  typeof item === "object" &&
+  typeof item.name === "string" &&
+  typeof item.arrayBuffer === "function";
+
 const getImageFiles = (input) => {
-  if (input instanceof FormData) return input.getAll("image").filter((item) => item instanceof File);
+  if (input instanceof FormData) return input.getAll("image").filter(isUploadFile);
   const images = input?.image;
-  return images ? Array.from(images).filter((item) => item instanceof File) : [];
+  return images ? Array.from(images).filter(isUploadFile) : [];
 };
+
+const documentFields = [
+  { key: "insurance_image", type: "insurance", position: 100 },
+  { key: "rc_book_image", type: "registration", position: 101 },
+  { key: "polution_image", type: "pollution", position: 102 },
+  { key: "pollution_image", type: "pollution", position: 102 },
+];
+
+const getDocumentFiles = (input) =>
+  documentFields
+    .map(({ key, type, position }) => {
+      const files = input instanceof FormData ? input.getAll(key) : Array.from(input?.[key] || []);
+      const file = files.find(isUploadFile);
+      return file ? { type, position, file } : null;
+    })
+    .filter(Boolean)
+    .filter((document, index, documents) => documents.findIndex((item) => item.type === document.type) === index);
 
 const uploadVehicleImages = async (vehicleId, files, userId) => {
   const client = requireSupabase();
@@ -255,12 +345,38 @@ const uploadVehicleImages = async (vehicleId, files, userId) => {
       .upload(storagePath, file, { cacheControl: "3600", upsert: false });
     if (uploadError) throw uploadError;
 
+    const { data: publicImage } = client.storage.from("vehicle-images").getPublicUrl(storagePath);
     const { error: imageError } = await client.from("vehicle_images").insert({
       vehicle_id: vehicleId,
       storage_path: storagePath,
+      public_url: publicImage?.publicUrl || null,
       position,
     });
     if (imageError) throw imageError;
+  }
+};
+
+const uploadVehicleDocuments = async (vehicleId, documents, userId) => {
+  const client = requireSupabase();
+  for (const { type, position, file } of documents) {
+    const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+    const storagePath = `${userId}/${vehicleId}/documents/${type}-${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await client.storage
+      .from("vehicle-images")
+      .upload(storagePath, file, { cacheControl: "3600", upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data: publicDocument } = client.storage.from("vehicle-images").getPublicUrl(storagePath);
+    const { error: documentError } = await client.from("vehicle_images").upsert(
+      {
+        vehicle_id: vehicleId,
+        storage_path: storagePath,
+        public_url: publicDocument?.publicUrl || null,
+        position,
+      },
+      { onConflict: "vehicle_id,position" }
+    );
+    if (documentError) throw documentError;
   }
 };
 
@@ -280,6 +396,10 @@ export const createVehicle = async (input) => {
     .single();
   if (profileError) throw profileError;
 
+  const imageFiles = getImageFiles(input);
+  if (!imageFiles.length) throw new Error("Upload at least one vehicle image.");
+  const documentFiles = getDocumentFiles(input);
+
   const isAdmin = profile.role === "admin";
   const values = {
     ...normalizeVehicleInput(input),
@@ -290,7 +410,11 @@ export const createVehicle = async (input) => {
   const { data: vehicle, error } = await client.from("vehicles").insert(values).select("*").single();
   if (error) throw error;
 
-  await uploadVehicleImages(vehicle.id, getImageFiles(input), user.id);
+  await uploadVehicleImages(vehicle.id, imageFiles, user.id);
+  await uploadVehicleDocuments(vehicle.id, documentFiles, user.id);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("rent-a-ride-vehicle-requests-updated"));
+  }
   return getVehicle(vehicle.id);
 };
 
@@ -316,5 +440,8 @@ export const reviewVehicle = async (id, approvalStatus, rejectionReason = null) 
     p_rejection_reason: rejectionReason,
   });
   if (error) throw error;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("rent-a-ride-vehicle-requests-updated"));
+  }
   return toAppVehicle(data);
 };

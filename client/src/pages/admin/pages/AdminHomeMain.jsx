@@ -10,18 +10,27 @@ const AdminHomeMain = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      getBookings().catch(() => []),
-      getAllVehicles().catch(() => []),
-      getPendingVehicles().catch(() => []),
-    ]).then(([bookingData, vehicleData, pendingData]) => {
-      if (!active) return;
-      setBookings(bookingData || []);
-      setVehicles(vehicleData || []);
-      setPendingVehicles(pendingData || []);
-    });
+    const load = () =>
+      Promise.all([
+        getBookings().catch(() => []),
+        getAllVehicles().catch(() => []),
+        getPendingVehicles().catch(() => []),
+      ]).then(([bookingData, vehicleData, pendingData]) => {
+        if (!active) return;
+        setBookings(bookingData || []);
+        setVehicles(vehicleData || []);
+        setPendingVehicles(pendingData || []);
+      });
+
+    load();
+    window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
+      window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("storage", load);
     };
   }, []);
 

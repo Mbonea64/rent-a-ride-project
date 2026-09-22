@@ -13,6 +13,7 @@ import { IoArrowBackCircleSharp } from "react-icons/io5";
 import { TooltipComponent } from "@syncfusion/ej2-react-popups";
 
 import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { formatTZS } from "../../data/localData";
 import CarNotFound from "./CarNotFound";
 import VehicleArtwork from "../../components/VehicleArtwork";
@@ -23,6 +24,8 @@ import { getVehicleImage } from "../../utils/vehicleImages";
 const VehicleDetails = () => {
   const navigate = useNavigate();
   const { vehicle, isLoading, error } = useSelectedVehicle();
+  const { availableCars } = useSelector((state) => state.selectRideSlice);
+  const backPath = availableCars?.length ? "/availableVehicles" : "/vehicles";
 
   const handleBook = async (navigate) => {
     try {
@@ -62,7 +65,7 @@ const VehicleDetails = () => {
                 </div>
                 <div className="absolute top-2 left-5 md:left-10">
                   <TooltipComponent content={"back"} position="BottomCenter">
-                    <Link to={"/vehicles"}>
+                    <Link to={backPath}>
                       <IoArrowBackCircleSharp
                         style={{ fontSize: "40", hover: "fill-red-700" }}
                         className="hover:fill-slate-500"

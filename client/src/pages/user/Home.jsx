@@ -51,17 +51,17 @@ function Home() {
         >
           <div className="">
             <p className={`py-2 text-[9px] md:text-[12px] ${styles.paragraph}`}>
-              Plan your Tanzania trip now
+              City-ready rentals with managed pickup spaces
             </p>
             <h1
               className={` md:${styles.heading2} font-extrabold text-[35px] leading-10 lg:font-bold  mb-6  lg:text-[58px] lg:mb-6`}
             >
-              Rent a <span className="text-green-600">ride</span> across <br />
-              Tanzania
+              Find the right <span className="text-green-600">ride</span> for <br />
+              your day
             </h1>
             <p className={`${styles.paragraph} text-justify`}>
-              Book reliable cars for Dar es Salaam, Arusha, Zanzibar, Mwanza,
-              and Dodoma with flexible pickup points and local payment options.
+              Choose from Rent a Ride pickup spaces around Dar es Salaam, or
+              request delivery to your preferred city location with clear add-on pricing.
             </p>
             <div className=" mt-10  lg:mt-[40px] flex gap-3">
               <button

@@ -22,6 +22,7 @@ import CarNotFound from "./CarNotFound";
 import VehicleArtwork from "../../components/VehicleArtwork";
 import useSelectedVehicle from "../../hooks/useSelectedVehicle";
 import { getVehicleImage } from "../../utils/vehicleImages";
+import PaymentGatewayModal from "../../components/PaymentGatewayModal";
 // import { toast, Toaster } from "sonner";
 
 const schema = z.object({
@@ -34,14 +35,107 @@ const schema = z.object({
   phoneNumber: z.string().min(8, { message: "phoneNumber required" }),
   adress: z.string().min(4, { message: "adress required" }),
   paymentMethod: z.string().min(1, { message: "payment method required" }),
+  nationalId: z.string().min(5, { message: "National ID or passport number is required" }),
+  hasDriverLicense: z.string().min(1, { message: "Choose driver licence status" }),
+  driverLicenseNumber: z.string().optional(),
+  pickupDeliveryMode: z.string().default("company_point"),
+  deliveryAddress: z.string().optional(),
+  acceptRentalTerms: z.literal(true, {
+    errorMap: () => ({ message: "Accept the rental requirements before payment" }),
+  }),
   // pickup_district: z.string().min(1),
+}).superRefine((value, ctx) => {
+  if (value.hasDriverLicense === "yes" && !value.driverLicenseNumber?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["driverLicenseNumber"],
+      message: "Driver licence number is required",
+    });
+  }
+  if (value.pickupDeliveryMode === "deliver_to_me" && !value.deliveryAddress?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["deliveryAddress"],
+      message: "Delivery address is required",
+    });
+  }
 });
+
+const darDeliverySuggestions = [
+  "Julius Nyerere International Airport",
+  "Kivukoni Ferry",
+  "Azam Marine Ferry Terminal",
+  "City Centre",
+  "Posta",
+  "Kariakoo",
+  "Ilala",
+  "Upanga",
+  "Muhimbili",
+  "Aga Khan Hospital",
+  "Sea Cliff",
+  "Masaki",
+  "Oyster Bay",
+  "Msasani",
+  "Slipway",
+  "Mikocheni",
+  "Victoria",
+  "Regent Estate",
+  "Ada Estate",
+  "Kinondoni",
+  "Kinondoni Studio",
+  "Morocco",
+  "Kawe",
+  "Mbezi Beach",
+  "White Sands",
+  "Tegeta",
+  "Bunju",
+  "Kijitonyama",
+  "Sinza",
+  "Mlimani City",
+  "Mwenge",
+  "Ubungo",
+  "Riverside",
+  "Makumbusho",
+  "Magomeni",
+  "Tabata",
+  "Tabata Segerea",
+  "Buguruni",
+  "Vingunguti",
+  "Kigogo",
+  "Kisutu",
+  "Jangwani",
+  "Gerezani",
+  "Kurasini",
+  "Temeke",
+  "Tandika",
+  "Chang'ombe",
+  "Mbagala",
+  "Kijichi",
+  "Kigamboni",
+  "Kibada",
+  "Gezaulole",
+  "Kimara",
+  "Goba",
+  "Wazo Hill",
+  "Mbweni",
+  "Kunduchi",
+  "Mbezi Luis",
+  "Kinyerezi",
+  "Ukonga",
+  "Gongolamboto",
+  "Pugu",
+  "Majohe",
+  "Chanika",
+  "Kisarawe II",
+  "Mbagala Rangi Tatu",
+];
 
 const CheckoutPage = () => {
   const {
     handleSubmit,
     formState: { errors },
     register,
+    setValue,
     watch,
   } = useForm({
     resolver: zodResolver(schema),
@@ -49,6 +143,9 @@ const CheckoutPage = () => {
       coupon: "",
       protectionPackage: "standard",
       mileagePackageKm: "",
+      hasDriverLicense: "",
+      pickupDeliveryMode: "company_point",
+      acceptRentalTerms: false,
     },
   });
   const navigate = useNavigate();
@@ -57,6 +154,8 @@ const CheckoutPage = () => {
     pickup_district,
     pickup_location,
     dropoff_location,
+    pickup_delivery_mode,
+    delivery_address,
     pickupDate,
     dropoffDate,
   } = useSelector((state) => state.bookingDataSlice);
@@ -97,10 +196,28 @@ const CheckoutPage = () => {
   const [selectedAddOns, setSelectedAddOns] = useState([]);
   const [bookingQuote, setBookingQuote] = useState(null);
   const [quoteError, setQuoteError] = useState("");
+  const [paymentBooking, setPaymentBooking] = useState(null);
+  const [thankYouBooking, setThankYouBooking] = useState(null);
 
   const couponValue = watch("coupon");
   const protectionPackage = watch("protectionPackage") || "standard";
   const mileagePackageKm = Number(watch("mileagePackageKm") || 0);
+  const hasDriverLicense = watch("hasDriverLicense");
+  const pickupDeliveryMode = watch("pickupDeliveryMode") || "company_point";
+
+  useEffect(() => {
+    if (pickup_delivery_mode) {
+      setValue("pickupDeliveryMode", pickup_delivery_mode);
+    }
+    if (delivery_address) {
+      setValue("deliveryAddress", delivery_address);
+    }
+  }, [pickup_delivery_mode, delivery_address, setValue]);
+  const effectiveAddOnCodes = [
+    ...selectedAddOns,
+    ...(pickupDeliveryMode === "deliver_to_me" ? ["vehicle_delivery"] : []),
+    ...(hasDriverLicense === "no" ? ["company_driver"] : []),
+  ].filter((code, index, allCodes) => allCodes.indexOf(code) === index);
 
   useEffect(() => {
     let active = true;
@@ -126,7 +243,7 @@ const CheckoutPage = () => {
       dropoff_location: dropoff_location || singleVehicleDetail?.location,
       dailyPrice: price,
       coupon: couponValue,
-      addOnCodes: selectedAddOns,
+      addOnCodes: effectiveAddOnCodes,
       mileagePackageKm,
       protectionPackage,
     })
@@ -151,6 +268,8 @@ const CheckoutPage = () => {
     singleVehicleDetail?.location,
     couponValue,
     selectedAddOns,
+    pickupDeliveryMode,
+    hasDriverLicense,
     mileagePackageKm,
     protectionPackage,
   ]);
@@ -193,9 +312,13 @@ const CheckoutPage = () => {
       dropoff_location: dropoff_location || singleVehicleDetail?.location,
       dailyPrice: price,
       ...formValues,
-      addOnCodes: selectedAddOns,
+      addOnCodes: effectiveAddOnCodes,
       mileagePackageKm,
       protectionPackage,
+      nationalId: formValues.nationalId,
+      hasDriverLicense: formValues.hasDriverLicense,
+      driverLicenseNumber: formValues.driverLicenseNumber,
+      deliveryAddress: formValues.deliveryAddress,
     };
 
     try {
@@ -203,8 +326,8 @@ const CheckoutPage = () => {
       const booking = await createBooking(orderData);
       dispatch(setLatestBooking(booking));
       dispatch(setIsSweetAlert(true));
-      toast.success("Booking created. Payment is pending.");
-      navigate("/");
+      setPaymentBooking(booking);
+      toast.success("Booking created. Complete payment confirmation to reserve the car.");
     } catch (error) {
       console.log(error);
       toast.error(error.message || "Could not create this booking");
@@ -222,6 +345,12 @@ const CheckoutPage = () => {
 
   const primaryImage = getVehicleImage(singleVehicleDetail);
 
+  const handlePaymentSubmitted = (updatedBooking) => {
+    dispatch(setLatestBooking(updatedBooking));
+    setThankYouBooking(updatedBooking);
+    toast.success("Payment submitted for Rent a Ride confirmation.");
+  };
+
   return (
     <>
       <Toaster
@@ -234,6 +363,33 @@ const CheckoutPage = () => {
           },
         }}
       />
+      <PaymentGatewayModal
+        booking={paymentBooking}
+        onClose={() => setPaymentBooking(null)}
+        onPaid={handlePaymentSubmitted}
+        context="checkout"
+      />
+      {thankYouBooking && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">
+              ✓
+            </div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Payment submitted</p>
+            <h2 className="mt-2 text-3xl font-semibold text-slate-950">Thank you for your purchase</h2>
+            <p className="mx-auto mt-4 max-w-md text-base leading-7 text-slate-600">
+              You will soon receive your payment confirmation from Rent a Ride by WhatsApp and email after admin verification.
+            </p>
+            <button
+              className="mt-7 rounded-lg bg-slate-950 px-6 py-3 text-sm font-semibold text-white"
+              onClick={() => navigate("/")}
+              type="button"
+            >
+              Take me home
+            </button>
+          </div>
+        </div>
+      )}
       <div className="grid w-full absolute top-0  sm:px-10 lg:grid-cols-2 lg:px-20 xl:px-[120px] xl:pl-[100px] gap-10 xl:mt-20 ">
         <div className="px-4  bg-gray w-full h-full drop-shadow-md">
           <div
@@ -479,6 +635,109 @@ const CheckoutPage = () => {
                 )}
               </div>
 
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">Rental eligibility</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Rent a Ride requires a national ID or passport. A driver licence is required for self-drive rentals; otherwise a company driver is assigned automatically.
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <TextField
+                      id="nationalId"
+                      label="National ID / Passport"
+                      variant="outlined"
+                      className="w-full"
+                      {...register("nationalId")}
+                    />
+                    {errors.nationalId && (
+                      <p className="text-red-500 text-[10px]">{errors.nationalId.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <TextField
+                      id="hasDriverLicense"
+                      label="Do you have a driver licence?"
+                      variant="outlined"
+                      select
+                      defaultValue=""
+                      {...register("hasDriverLicense")}
+                      className="w-full"
+                    >
+                      <MenuItem value="">Select one</MenuItem>
+                      <MenuItem value="yes">Yes, I will self-drive</MenuItem>
+                      <MenuItem value="no">No, assign a Rent a Ride driver</MenuItem>
+                    </TextField>
+                    {errors.hasDriverLicense && (
+                      <p className="text-red-500 text-[10px]">{errors.hasDriverLicense.message}</p>
+                    )}
+                  </div>
+                  {hasDriverLicense === "yes" && (
+                    <div className="md:col-span-2">
+                      <TextField
+                        id="driverLicenseNumber"
+                        label="Driver licence number"
+                        variant="outlined"
+                        className="w-full"
+                        {...register("driverLicenseNumber")}
+                      />
+                      {errors.driverLicenseNumber && (
+                        <p className="text-red-500 text-[10px]">{errors.driverLicenseNumber.message}</p>
+                      )}
+                    </div>
+                  )}
+                  {hasDriverLicense === "no" && (
+                    <div className="md:col-span-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                      Company driver add-on will be added to this booking because no driver licence was provided.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-950">Pickup arrangement</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Choose a Rent a Ride yard for handover, or ask us to deliver the car to a custom Dar es Salaam location for an added fee.
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <TextField
+                    id="pickupDeliveryMode"
+                    label="How do you want to receive the car?"
+                    variant="outlined"
+                    select
+                    defaultValue="company_point"
+                    {...register("pickupDeliveryMode")}
+                    className="w-full"
+                  >
+                    <MenuItem value="company_point">I will collect from a Rent a Ride yard</MenuItem>
+                    <MenuItem value="deliver_to_me">Deliver to my custom Dar location</MenuItem>
+                  </TextField>
+                  {pickupDeliveryMode === "deliver_to_me" && (
+                    <div>
+                      <TextField
+                        id="deliveryAddress"
+                        label="Custom delivery location"
+                        variant="outlined"
+                        className="w-full"
+                        inputProps={{ list: "dar-delivery-locations" }}
+                        placeholder="Start typing an area in Dar es Salaam"
+                        {...register("deliveryAddress")}
+                      />
+                      <datalist id="dar-delivery-locations">
+                        {darDeliverySuggestions.map((location) => (
+                          <option value={location} key={location} />
+                        ))}
+                      </datalist>
+                      {errors.deliveryAddress && (
+                        <p className="text-red-500 text-[10px]">{errors.deliveryAddress.message}</p>
+                      )}
+                      <p className="mt-2 text-xs text-slate-500">
+                        Delivery fee and assigned driver details will be included after payment confirmation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <TextField
                   id="protectionPackage"
@@ -515,7 +774,9 @@ const CheckoutPage = () => {
                 <div className="rounded-lg border border-gray-200 bg-white p-4">
                   <p className="mb-3 text-sm font-semibold text-gray-900">Trip add-ons</p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {rentalAddOns.map((addOn) => (
+                    {rentalAddOns
+                      .filter((addOn) => !["vehicle_delivery", "company_driver"].includes(addOn.code))
+                      .map((addOn) => (
                       <label
                         className="flex cursor-pointer items-start gap-3 rounded-md border border-gray-100 p-3 text-sm"
                         key={addOn.code}
@@ -538,6 +799,19 @@ const CheckoutPage = () => {
                   </div>
                 </div>
               )}
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <input type="checkbox" className="mt-1" {...register("acceptRentalTerms")} />
+                <span>
+                  <span className="block font-semibold text-slate-950">I accept the rental requirements</span>
+                  <span className="mt-1 block leading-6">
+                    I will present my national ID or passport, provide a valid driver licence for self-drive, or accept a Rent a Ride company driver if no licence is available.
+                  </span>
+                  {errors.acceptRentalTerms && (
+                    <span className="mt-2 block text-xs text-red-600">{errors.acceptRentalTerms.message}</span>
+                  )}
+                </span>
+              </label>
 
               {/* PinCode */}
               <div>
@@ -646,7 +920,7 @@ const CheckoutPage = () => {
               <button
                 className={`mt-4 mb-8 w-full rounded-md bg-gray-900 px-6 py-3 font-medium text-white`}
               >
-                {"Place Order"}
+                {"Pay Now"}
               </button>
             )}
           </form>

@@ -4,8 +4,12 @@ import { NavLink } from "react-router-dom";
 import { FiBell } from "react-icons/fi";
 import { getBookings } from "../services/bookingService";
 import { shouldShowInVendorDashboard } from "../services/demoOpsService";
-import { buildBookingNotifications, getUnreadNotifications } from "../services/notificationService";
-import { getVendorVehicles } from "../services/vehicleService";
+import {
+  buildBookingNotifications,
+  buildVehicleRequestNotifications,
+  getUnreadNotifications,
+} from "../services/notificationService";
+import { getPendingVehicles, getVendorVehicles } from "../services/vehicleService";
 
 const rolePaths = {
   admin: "/adminDashboard/notifications",
@@ -16,6 +20,7 @@ const rolePaths = {
 const SidebarNotificationLink = ({ role = "customer" }) => {
   const [bookings, setBookings] = useState([]);
   const [vendorVehicles, setVendorVehicles] = useState([]);
+  const [pendingVehicleRequests, setPendingVehicleRequests] = useState([]);
   const [readVersion, setReadVersion] = useState(0);
 
   useEffect(() => {
@@ -25,9 +30,11 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
       try {
         const bookingData = await getBookings();
         const vehicleData = role === "vendor" ? await getVendorVehicles().catch(() => []) : [];
+        const pendingVehicles = role === "admin" ? await getPendingVehicles().catch(() => []) : [];
         if (!active) return;
         setBookings(bookingData || []);
         setVendorVehicles(vehicleData || []);
+        setPendingVehicleRequests(pendingVehicles || []);
       } catch (error) {
         console.error("Could not load notification link", error);
       }
@@ -37,10 +44,20 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
     const interval = window.setInterval(load, 30000);
     const onRead = () => setReadVersion((current) => current + 1);
     window.addEventListener("rent-a-ride-notifications-read", onRead);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("rent-a-ride-bookings-updated", load);
+    window.addEventListener("rent-a-ride-vehicle-requests-updated", load);
+    window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
       window.clearInterval(interval);
       window.removeEventListener("rent-a-ride-notifications-read", onRead);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("rent-a-ride-bookings-updated", load);
+      window.removeEventListener("rent-a-ride-vehicle-requests-updated", load);
+      window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("storage", load);
     };
   }, [role]);
 
@@ -50,8 +67,17 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
   }, [bookings, role, vendorVehicles]);
 
   const unreadNotifications = useMemo(
-    () => getUnreadNotifications(buildBookingNotifications({ bookings: scopedBookings, role }), role),
-    [scopedBookings, role, readVersion]
+    () =>
+      getUnreadNotifications(
+        [
+          ...(role === "admin"
+            ? buildVehicleRequestNotifications({ vehicles: pendingVehicleRequests })
+            : []),
+          ...buildBookingNotifications({ bookings: scopedBookings, role }),
+        ],
+        role
+      ),
+    [pendingVehicleRequests, scopedBookings, role, readVersion]
   );
 
   return (

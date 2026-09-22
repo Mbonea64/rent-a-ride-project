@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { IoMdTime } from "react-icons/io";
 import { CiCalendarDate } from "react-icons/ci";
 import { CiLocationOn } from "react-icons/ci";
+import { FiMapPin } from "react-icons/fi";
 import UserOrderDetailsModal from "../../components/UserOrderDetailsModal";
 import {
   setIsOrderModalOpen,
@@ -20,6 +21,7 @@ export default function Orders() {
   const [bookings, setBookings] = useState([]);
   const [busyBookingId, setBusyBookingId] = useState(null);
   const [editingBookingId, setEditingBookingId] = useState(null);
+  const [trackingBooking, setTrackingBooking] = useState(null);
   const [timeForm, setTimeForm] = useState({ pickupDate: "", dropoffDate: "", dropoffLocation: "" });
   const dispatch = useDispatch();
 
@@ -30,11 +32,23 @@ export default function Orders() {
 
   useEffect(() => {
     let active = true;
-    getBookings()
-      .then((data) => active && setBookings(data))
-      .catch((error) => console.error("Could not load bookings", error));
+    const refreshBookings = () =>
+      getBookings()
+        .then((data) => active && setBookings(data))
+        .catch((error) => console.error("Could not load bookings", error));
+    refreshBookings();
+    window.addEventListener("storage", refreshBookings);
+    window.addEventListener("rent-a-ride-payment-updated", refreshBookings);
+    window.addEventListener("rent-a-ride-bookings-updated", refreshBookings);
+    window.addEventListener("rent-a-ride-demo-clock-updated", refreshBookings);
+    window.addEventListener("rent-a-ride-demo-reset", refreshBookings);
     return () => {
       active = false;
+      window.removeEventListener("storage", refreshBookings);
+      window.removeEventListener("rent-a-ride-payment-updated", refreshBookings);
+      window.removeEventListener("rent-a-ride-bookings-updated", refreshBookings);
+      window.removeEventListener("rent-a-ride-demo-clock-updated", refreshBookings);
+      window.removeEventListener("rent-a-ride-demo-reset", refreshBookings);
     };
   }, []);
 
@@ -112,17 +126,16 @@ export default function Orders() {
     <div className="max-w-4xl mx-auto py-20">
       <UserOrderDetailsModal />
       <h1 className="text-4xl font-semibold mb-2">Your Bookings</h1>
-      <DemoTripMonitor
-        bookings={bookings}
-        role="user"
-        title="Company updates from Rent a Ride"
-        emptyText="Your automated Rent a Ride deadline and route messages will appear here after booking."
-      />
       <div className="text-sm text-gray-600 mb-8">
         {activeBookings && activeBookings.length > 0 ? (
           `${activeBookings.length} active booking${activeBookings.length === 1 ? "" : "s"}`
         ) : (
-          <div className="font-extrabold text-black flex justify-center items-center min-h-[180px]">No Active Bookings</div>
+          <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <p className="text-lg font-semibold text-slate-950">No active bookings</p>
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
+              Search for a vehicle, pay now, and this dashboard will show the booking, payment status, invoice, and GPS updates.
+            </p>
+          </div>
         )}
       </div>
       <div className="mb-8">
@@ -260,6 +273,22 @@ export default function Orders() {
                         >
                           Invoice
                         </button>
+                        <button
+                          className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 me-2 mb-2 text-sm font-medium ring-1 transition ${
+                            trackingBooking?._id === cur._id
+                              ? "bg-gray-900 text-white ring-gray-900"
+                              : "bg-white text-gray-800 ring-gray-300 hover:bg-gray-50"
+                          }`}
+                          onClick={() =>
+                            setTrackingBooking((current) =>
+                              current?._id === cur._id ? null : cur
+                            )
+                          }
+                          type="button"
+                        >
+                          <FiMapPin />
+                          {trackingBooking?._id === cur._id ? "Hide GPS" : "View GPS"}
+                        </button>
                         {["notBooked", "booked"].includes(cur.bookingDetails.status) && (
                           <>
                           <button
@@ -325,6 +354,16 @@ export default function Orders() {
                               Close
                             </button>
                           </div>
+                        </div>
+                      )}
+                      {trackingBooking?._id === cur._id && (
+                        <div className="mt-6">
+                          <DemoTripMonitor
+                            bookings={[cur]}
+                            role="user"
+                            title="Selected vehicle real-time location"
+                            emptyText="This booking has no active GPS session."
+                          />
                         </div>
                       )}
                     </div>

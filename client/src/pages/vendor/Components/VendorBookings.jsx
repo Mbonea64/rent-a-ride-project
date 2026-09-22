@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import DemoTripMonitor from "../../../components/DemoTripMonitor";
 import { getBookings } from "../../../services/bookingService";
 import { shouldShowInVendorDashboard } from "../../../services/demoOpsService";
 import { getVendorVehicles } from "../../../services/vehicleService";
@@ -20,9 +19,17 @@ const VendorBookings = () => {
       .catch((error) => console.error("Could not load vendor operations", error));
     load();
     window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("rent-a-ride-bookings-updated", load);
+    window.addEventListener("rent-a-ride-demo-clock-updated", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
       window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("rent-a-ride-bookings-updated", load);
+      window.removeEventListener("rent-a-ride-demo-clock-updated", load);
+      window.removeEventListener("storage", load);
     };
   }, []);
 
@@ -38,13 +45,7 @@ const VendorBookings = () => {
 
   return (
     <div className="mt-5 w-full max-w-none">
-      <DemoTripMonitor
-        bookings={vendorBookings}
-        role="vendor"
-        title="Vendor delivery and return monitor"
-        emptyText="Active deliveries and returns from this vendor fleet will appear here."
-      />
-      <VendorBookingsTable />
+      <VendorBookingsTable bookings={vendorBookings} />
     </div>
   )
 }

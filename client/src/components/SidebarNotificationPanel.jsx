@@ -2,13 +2,14 @@ import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
 import { FiBell } from "react-icons/fi";
 import { getBookings } from "../services/bookingService";
-import { buildBookingNotifications } from "../services/notificationService";
+import { buildBookingNotifications, getUnreadNotifications } from "../services/notificationService";
 import { shouldShowInVendorDashboard } from "../services/demoOpsService";
 import { getVendorVehicles } from "../services/vehicleService";
 
 const SidebarNotificationPanel = ({ role = "customer" }) => {
   const [bookings, setBookings] = useState([]);
   const [vendorVehicles, setVendorVehicles] = useState([]);
+  const [readVersion, setReadVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -27,9 +28,20 @@ const SidebarNotificationPanel = ({ role = "customer" }) => {
 
     load();
     const interval = window.setInterval(load, 30000);
+    const onRead = () => setReadVersion((current) => current + 1);
+    window.addEventListener("rent-a-ride-notifications-read", onRead);
+    window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("rent-a-ride-bookings-updated", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
       window.clearInterval(interval);
+      window.removeEventListener("rent-a-ride-notifications-read", onRead);
+      window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("rent-a-ride-bookings-updated", load);
+      window.removeEventListener("storage", load);
     };
   }, [role]);
 
@@ -38,7 +50,10 @@ const SidebarNotificationPanel = ({ role = "customer" }) => {
     return bookings.filter((booking) => shouldShowInVendorDashboard(booking, vendorVehicles));
   }, [bookings, role, vendorVehicles]);
 
-  const notifications = buildBookingNotifications({ bookings: scopedBookings, role }).slice(0, 3);
+  const notifications = useMemo(
+    () => getUnreadNotifications(buildBookingNotifications({ bookings: scopedBookings, role }), role).slice(0, 3),
+    [scopedBookings, role, readVersion]
+  );
 
   if (notifications.length === 0) return null;
 

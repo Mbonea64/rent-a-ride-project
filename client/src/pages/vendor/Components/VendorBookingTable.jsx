@@ -1,23 +1,14 @@
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { FiEye } from "react-icons/fi";
+import { FiEye, FiMapPin } from "react-icons/fi";
+import DemoTripMonitor from "../../../components/DemoTripMonitor";
 import VendorBookingDetailModal from "./VendorBookingModal";
 import { setVendorOrderModalOpen, setVendorSingleOrderDetails } from "../../../redux/vendor/vendorBookingSlice";
 import { formatTZS } from "../../../data/localData";
-import { getBookings, setBookingStatus } from "../../../services/bookingService";
+import { getBookings } from "../../../services/bookingService";
 import { shouldShowInVendorDashboard } from "../../../services/demoOpsService";
 import { getBookingLifecycleLabel, isBookingPaid } from "../../../services/notificationService";
 import { getVendorVehicles } from "../../../services/vehicleService";
-
-const statusOptions = [
-  "notBooked",
-  "booked",
-  "onTrip",
-  "notPicked",
-  "canceled",
-  "overDue",
-  "tripCompleted",
-];
 
 const statusClass = (status) => {
   if (status === "canceled") return "bg-red-100 text-red-700";
@@ -38,11 +29,11 @@ const formatDateTime = (value) => {
   });
 };
 
-const VendorBookingsTable = () => {
-  const [bookings, setBookings] = useState([]);
+const VendorBookingsTable = ({ bookings: scopedBookings }) => {
+  const [bookings, setBookings] = useState(scopedBookings || []);
   const [vendorVehicles, setVendorVehicles] = useState([]);
   const [filtered, setFilteredBookings] = useState([]);
-  const [busyBookingId, setBusyBookingId] = useState(null);
+  const [trackingBooking, setTrackingBooking] = useState(null);
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -65,12 +56,22 @@ const VendorBookingsTable = () => {
   };
 
   useEffect(() => {
+    if (scopedBookings) {
+      setBookings(scopedBookings);
+      return undefined;
+    }
     fetchBookings();
     window.addEventListener("rent-a-ride-demo-reset", fetchBookings);
+    window.addEventListener("rent-a-ride-payment-updated", fetchBookings);
+    window.addEventListener("rent-a-ride-bookings-updated", fetchBookings);
+    window.addEventListener("storage", fetchBookings);
     return () => {
       window.removeEventListener("rent-a-ride-demo-reset", fetchBookings);
+      window.removeEventListener("rent-a-ride-payment-updated", fetchBookings);
+      window.removeEventListener("rent-a-ride-bookings-updated", fetchBookings);
+      window.removeEventListener("storage", fetchBookings);
     };
-  }, []);
+  }, [scopedBookings]);
 
   useEffect(() => {
     setFilteredBookings(
@@ -81,18 +82,6 @@ const VendorBookingsTable = () => {
       )
     );
   }, [vendorVehicles, bookings]);
-
-  const handleStatusChange = async (event, bookingId) => {
-    try {
-      setBusyBookingId(bookingId);
-      await setBookingStatus(bookingId, event.target.value);
-      await fetchBookings();
-    } catch (error) {
-      console.error("Could not update booking status", error);
-    } finally {
-      setBusyBookingId(null);
-    }
-  };
 
   const handleDetailsModal = (booking) => {
     dispatch(setVendorOrderModalOpen(true));
@@ -117,8 +106,11 @@ const VendorBookingsTable = () => {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-600">
-          No bookings yet
+        <div className="rounded-lg border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <p className="text-base font-semibold text-slate-950">No active vendor bookings</p>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
+            When a customer books one of your approved vehicles, the reservation, payment status, and fulfillment actions will appear here automatically.
+          </p>
         </div>
       ) : (
         <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -133,7 +125,8 @@ const VendorBookingsTable = () => {
                   <th className="px-4 py-3">Trip</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 text-right">Details</th>
+                  <th className="px-4 py-3 text-right">Live GPS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -198,25 +191,41 @@ const VendorBookingsTable = () => {
                         >
                           <FiEye />
                         </button>
-                        <select
-                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium capitalize text-slate-700 disabled:opacity-60"
-                          disabled={busyBookingId === booking._id}
-                          value={booking.status}
-                          onChange={(event) => handleStatusChange(event, booking._id)}
-                        >
-                          {statusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
                       </div>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                          trackingBooking?._id === booking._id
+                            ? "border-slate-950 bg-slate-950 text-white"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                        onClick={() =>
+                          setTrackingBooking((current) =>
+                            current?._id === booking._id ? null : booking
+                          )
+                        }
+                        type="button"
+                      >
+                        <FiMapPin />
+                        {trackingBooking?._id === booking._id ? "Hide GPS" : "View GPS"}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {trackingBooking && (
+        <div className="mt-6">
+          <DemoTripMonitor
+            bookings={[trackingBooking]}
+            role="vendor"
+            title="Selected vehicle real-time location"
+            emptyText="This booking has no active GPS session."
+          />
         </div>
       )}
     </div>

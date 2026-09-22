@@ -4,6 +4,8 @@ const initialState = {
   pickup_district: "",
   pickup_location: "",
   dropoff_location: "",
+  pickup_delivery_mode: "company_point",
+  delivery_address: "",
   pickuptime: {},
   dropofftime: {},
   pickupDate: {},
@@ -20,6 +22,8 @@ const bookingDataSlice = createSlice({
         pickup_district,
         pickup_location,
         dropoff_location,
+        pickupDeliveryMode,
+        deliveryAddress,
         dropofftime,
         pickuptime,
       } = action.payload;
@@ -27,6 +31,8 @@ const bookingDataSlice = createSlice({
       // Set pickup details
       state.pickup_district = pickup_district;
       state.pickup_location = pickup_location;
+      state.pickup_delivery_mode = pickupDeliveryMode || "company_point";
+      state.delivery_address = deliveryAddress || "";
 
       // Set dropoff details
       state.dropoff_location = dropoff_location;

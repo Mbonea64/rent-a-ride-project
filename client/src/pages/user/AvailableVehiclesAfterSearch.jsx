@@ -10,6 +10,7 @@ import { setFilteredData } from "../../redux/user/sortfilterSlice";
 import { formatTZS } from "../../data/localData";
 import { getAvailableVariants } from "../../services/vehicleService";
 import VehicleArtwork from "../../components/VehicleArtwork";
+import { onVehicleDetail } from "../../utils/openVehicleDetails";
 
 const AvailableVehiclesAfterSearch = () => {
   const { availableCars } = useSelector((state) => state.selectRideSlice);
@@ -18,20 +19,22 @@ const AvailableVehiclesAfterSearch = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const showVarients = async (model) => {
+  const selectVehicle = async (vehicle) => {
     try {
-      const data = await getAvailableVariants({
-        model,
+      const variants = await getAvailableVariants({
+        model: vehicle.model,
         pickupDate: pickupDate.humanReadable,
         dropOffDate: dropoffDate.humanReadable,
         pickUpDistrict: pickup_district,
         pickUpLocation: pickup_location,
       });
-      dispatch(setVariants(data));
-      dispatch(setFilteredData(data));
-      navigate("/allVariants");
+      const exactVehicle = variants.find((item) => item._id === vehicle._id) || variants[0] || vehicle;
+      dispatch(setVariants(variants));
+      dispatch(setFilteredData(variants));
+      onVehicleDetail(exactVehicle, dispatch, navigate);
     } catch (error) {
       console.log(error);
+      onVehicleDetail(vehicle, dispatch, navigate);
     }
   };
 
@@ -100,11 +103,9 @@ const AvailableVehiclesAfterSearch = () => {
                           <>
                             <button
                               className="bg-green-500 rounded-sm text-black px-6 py-2"
-                              onClick={() => {
-                                showVarients(cur.model);
-                              }}
+                              onClick={() => selectVehicle(cur)}
                             >
-                              Select
+                              View
                             </button>
                           </>
                         </p>

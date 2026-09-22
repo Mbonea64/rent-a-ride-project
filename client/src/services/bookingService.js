@@ -1,10 +1,11 @@
 import { requireSupabase } from "../lib/supabase";
+import { dispatchPaymentConfirmationMessages } from "./companyNotificationService";
 import { publishDemoBooking } from "./demoOpsService";
 import { toAppVehicle } from "./vehicleService";
 
 const bookingSelect = `
   *,
-  vehicle:vehicles(*, vehicle_images(id, storage_path, public_url, position)),
+  vehicle:vehicles(*, owner:profiles!vehicles_owner_id_fkey(id, username, email, phone_number, role), vehicle_images(id, storage_path, public_url, position)),
   payments(*),
   booking_line_items(*),
   invoices(*)
@@ -12,7 +13,7 @@ const bookingSelect = `
 
 const legacyBookingSelect = `
   *,
-  vehicle:vehicles(*, vehicle_images(id, storage_path, public_url, position)),
+  vehicle:vehicles(*, owner:profiles!vehicles_owner_id_fkey(id, username, email, phone_number, role), vehicle_images(id, storage_path, public_url, position)),
   payments(*)
 `;
 
@@ -62,6 +63,24 @@ const demoRentalAddOns = [
     applies_to: "rental",
     is_active: true,
   },
+  {
+    code: "company_driver",
+    name: "Company driver",
+    description: "A Rent a Ride driver is assigned when the customer has no driver licence.",
+    price_type: "per_day",
+    price_amount: 35000,
+    applies_to: "rental",
+    is_active: true,
+  },
+  {
+    code: "fuel_service",
+    name: "Company fuel service",
+    description: "Rent a Ride fuels the vehicle before pickup or delivery.",
+    price_type: "per_booking",
+    price_amount: 40000,
+    applies_to: "rental",
+    is_active: true,
+  },
 ];
 
 const isMissingFeatureError = (error) => {
@@ -84,7 +103,13 @@ const calculateRentalDays = (pickupDate, dropoffDate) => {
 
 const demoEnhancementKey = "rent_a_ride_demo_booking_enhancements";
 const demoBookingOverrideKey = "rent_a_ride_demo_booking_overrides";
+const demoPaymentOverrideKey = "rent_a_ride_demo_payment_overrides";
 const hiddenDemoBookingKey = "rent_a_ride_hidden_demo_bookings";
+
+const dispatchBookingUpdated = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("rent-a-ride-bookings-updated"));
+};
 
 const readDemoEnhancements = () => {
   if (typeof window === "undefined") return {};
@@ -132,9 +157,38 @@ const writeDemoBookingOverride = (bookingId, values) => {
       },
     })
   );
+  dispatchBookingUpdated();
 };
 
 const getDemoBookingOverride = (bookingId) => readDemoBookingOverrides()[bookingId] || {};
+
+const readDemoPaymentOverrides = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(demoPaymentOverrideKey) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const writeDemoPaymentOverride = (bookingId, values) => {
+  if (typeof window === "undefined" || !bookingId) return;
+  const current = readDemoPaymentOverrides();
+  window.localStorage.setItem(
+    demoPaymentOverrideKey,
+    JSON.stringify({
+      ...current,
+      [bookingId]: {
+        ...(current[bookingId] || {}),
+        ...values,
+        updated_at: new Date().toISOString(),
+      },
+    })
+  );
+  window.dispatchEvent(new Event("rent-a-ride-payment-updated"));
+};
+
+const getDemoPaymentOverride = (bookingId) => readDemoPaymentOverrides()[bookingId] || {};
 
 const readHiddenDemoBookings = () => {
   if (typeof window === "undefined") return [];
@@ -147,6 +201,14 @@ const readHiddenDemoBookings = () => {
 
 const isHiddenDemoBooking = (bookingId) => readHiddenDemoBookings().includes(bookingId);
 
+const clearLocalDemoBookingState = ({ keepHiddenBookings = false } = {}) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(demoEnhancementKey);
+  window.localStorage.removeItem(demoBookingOverrideKey);
+  window.localStorage.removeItem(demoPaymentOverrideKey);
+  if (!keepHiddenBookings) window.localStorage.removeItem(hiddenDemoBookingKey);
+};
+
 export const hideDemoBookings = (bookingIds = []) => {
   if (typeof window === "undefined") return;
   const hidden = new Set(readHiddenDemoBookings());
@@ -157,6 +219,26 @@ export const hideDemoBookings = (bookingIds = []) => {
 };
 
 export const resetDemoBookingState = async () => {
+  const resetResult = await requireSupabase()
+    .rpc("reset_demo_activity")
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return data;
+    })
+    .catch(async (error) => {
+      if (!isMissingFeatureError(error)) throw error;
+      return null;
+    });
+
+  if (resetResult) {
+    clearLocalDemoBookingState();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("rent-a-ride-demo-reset"));
+      window.dispatchEvent(new Event("storage"));
+    }
+    return Number(resetResult.deleted_bookings || 0);
+  }
+
   const bookings = await getBookings({ includeHidden: true }).catch(() => []);
   await Promise.all(
     bookings
@@ -164,10 +246,7 @@ export const resetDemoBookingState = async () => {
       .map((booking) => setBookingStatus(booking._id, "canceled").catch(() => null))
   );
   hideDemoBookings(bookings.map((booking) => booking._id));
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(demoEnhancementKey);
-    window.localStorage.removeItem(demoBookingOverrideKey);
-  }
+  clearLocalDemoBookingState({ keepHiddenBookings: true });
   return bookings.length;
 };
 
@@ -246,6 +325,31 @@ const quoteBookingForDemo = (order) => {
   };
 };
 
+const addLocalDemoAddOnsToQuote = (quote = {}, order = {}) => {
+  const rentalDays = Number(quote.rental_days || calculateRentalDays(order.pickupDate, order.dropoffDate));
+  const existingCodes = new Set((quote.line_items || []).map((item) => item.code));
+  const missingAddOns = demoRentalAddOns.filter(
+    (addOn) => (order.addOnCodes || []).includes(addOn.code) && !existingCodes.has(addOn.code)
+  );
+  if (!missingAddOns.length) return quote;
+
+  const extraLineItems = missingAddOns.map((addOn) => ({
+    id: `demo-${addOn.code}`,
+    item_type: "addon",
+    code: addOn.code,
+    description: addOn.name,
+    amount: addOn.price_type === "per_day" ? addOn.price_amount * rentalDays : addOn.price_amount,
+  }));
+  const extraTotal = extraLineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  return {
+    ...quote,
+    add_ons_total: Number(quote.add_ons_total || 0) + extraTotal,
+    total_price: Number(quote.total_price || 0) + extraTotal,
+    line_items: [...(quote.line_items || []), ...extraLineItems],
+  };
+};
+
 const toLegacyStatus = (status) => ({
   pending: "notBooked",
   confirmed: "booked",
@@ -272,12 +376,14 @@ export const toAppBooking = (booking) => {
   const vehicle = toAppVehicle(booking.vehicle);
   const status = toLegacyStatus(booking.status);
   const payment = booking.payments?.[0] || {};
-  const paymentStatus = payment.status || "pending";
+  const paymentOverride = getDemoPaymentOverride(booking.id);
+  const paymentStatus = paymentOverride.status || payment.status || "pending";
+  const paymentProvider = paymentOverride.provider || payment.provider || "Pending";
   const lineItems = booking.booking_line_items || demoEnhancement.line_items || [];
   const pickupAt = demoOverride.pickup_at || booking.pickup_at;
   const dropoffAt = demoOverride.dropoff_at || booking.dropoff_at;
   const dropoffLocation = demoOverride.dropoff_location || booking.dropoff_location;
-  const updatedAt = demoOverride.updated_at || booking.updated_at;
+  const updatedAt = paymentOverride.updated_at || demoOverride.updated_at || booking.updated_at;
 
   return {
     ...booking,
@@ -307,14 +413,18 @@ export const toAppBooking = (booking) => {
     selectedAddons: booking.selected_addons || demoEnhancement.selected_addons || [],
     lineItems,
     invoices: booking.invoices || [],
-    paymentProvider: payment.provider || "Pending",
+    paymentProvider,
+    paymentReference: paymentOverride.reference || payment.provider_reference || "",
+    paymentConfirmedAt: paymentOverride.confirmed_at || null,
     paymentStatus,
     status,
     vehicleDetails: vehicle,
     bookingDetails: {
       _id: booking.id,
       status,
-      paymentMethod: payment.provider || "Pending",
+      paymentMethod: paymentProvider,
+      paymentReference: paymentOverride.reference || payment.provider_reference || "",
+      paymentConfirmedAt: paymentOverride.confirmed_at || null,
       paymentStatus,
       totalPrice: Number(demoEnhancement.total_price || booking.total_price),
       subtotal: Number(booking.subtotal || demoEnhancement.subtotal || 0),
@@ -338,6 +448,7 @@ export const toAppBooking = (booking) => {
       pickUpLocation: booking.pickup_location,
       dropOffLocation: dropoffLocation,
       contactPhone: booking.contact_phone,
+      contactEmail: booking.contact_email,
       contactAddress: booking.contact_address,
     },
   };
@@ -386,14 +497,19 @@ export const getRentalAddOns = async () => {
     .order("name", { ascending: true });
   if (error && isMissingFeatureError(error)) return demoRentalAddOns;
   if (error) throw error;
-  return data || [];
+  const remote = data || [];
+  const remoteCodes = new Set(remote.map((addOn) => addOn.code));
+  return [
+    ...remote,
+    ...demoRentalAddOns.filter((addOn) => !remoteCodes.has(addOn.code)),
+  ];
 };
 
 export const quoteBooking = async (order) => {
   const { data, error } = await requireSupabase().rpc("quote_booking", toQuoteInput(order));
   if (error && isMissingFeatureError(error)) return quoteBookingForDemo(order);
   if (error) throw error;
-  return data;
+  return addLocalDemoAddOnsToQuote(data, order);
 };
 
 export const createBooking = async (order) => {
@@ -428,12 +544,30 @@ export const createBooking = async (order) => {
     });
     const booking = await loadBooking(legacyData.id);
     publishDemoBooking(booking);
+    dispatchBookingUpdated();
     return booking;
   }
   if (error) throw error;
   const booking = await loadBooking(data.id);
-  publishDemoBooking(booking);
-  return booking;
+  const enhancedQuote = addLocalDemoAddOnsToQuote(
+    {
+      rental_days: booking.bookingDetails?.rentalDays || calculateRentalDays(order.pickupDate, order.dropoffDate),
+      total_price: booking.totalPrice,
+      add_ons_total: booking.addOnsTotal,
+      line_items: booking.lineItems || [],
+    },
+    order
+  );
+  writeDemoEnhancement(data.id, {
+    ...enhancedQuote,
+    protection_package: order.protectionPackage || "standard",
+    mileage_package_km: order.mileagePackageKm ? Number(order.mileagePackageKm) : null,
+    selected_addons: order.addOnCodes || [],
+  });
+  const enhancedBooking = await loadBooking(data.id);
+  publishDemoBooking(enhancedBooking);
+  dispatchBookingUpdated();
+  return enhancedBooking;
 };
 
 export const getBookings = async ({ includeHidden = false } = {}) => {
@@ -462,13 +596,17 @@ export const setBookingStatus = async (id, status) => {
     p_status: toDatabaseStatus(status),
   });
   if (error) throw error;
-  return loadBooking(id);
+  const booking = await loadBooking(id);
+  dispatchBookingUpdated();
+  return booking;
 };
 
 export const cancelBooking = async (id) => {
   const { error } = await requireSupabase().rpc("cancel_own_booking", { p_booking_id: id });
   if (error) throw error;
-  return loadBooking(id);
+  const booking = await loadBooking(id);
+  dispatchBookingUpdated();
+  return booking;
 };
 
 export const modifyBooking = async (id, updates) => {
@@ -491,7 +629,9 @@ export const modifyBooking = async (id, updates) => {
     return loadBooking(id);
   }
   if (error) throw error;
-  return loadBooking(id);
+  const booking = await loadBooking(id);
+  dispatchBookingUpdated();
+  return booking;
 };
 
 export const generateBookingInvoice = async (id) => {
@@ -509,4 +649,46 @@ export const generateBookingInvoice = async (id) => {
   }
   if (error) throw error;
   return data;
+};
+
+export const submitBookingPayment = async (id, { provider, reference }) => {
+  writeDemoPaymentOverride(id, {
+    provider,
+    reference,
+    status: "submitted",
+    submitted_at: new Date().toISOString(),
+  });
+  const booking = await loadBooking(id);
+  dispatchBookingUpdated();
+  return booking;
+};
+
+export const confirmBookingPayment = async (id, { provider, reference }) => {
+  const confirmedAt = new Date().toISOString();
+  writeDemoPaymentOverride(id, {
+    provider,
+    reference,
+    status: "paid",
+    confirmed_at: confirmedAt,
+  });
+
+  await requireSupabase()
+    .rpc("confirm_booking_payment", {
+      p_booking_id: id,
+      p_provider: provider,
+      p_reference: reference || null,
+    })
+    .then(({ error }) => {
+      if (error) throw error;
+    })
+    .catch((error) => {
+      if (!isMissingFeatureError(error)) {
+        console.warn("Could not persist payment confirmation", error);
+      }
+    });
+
+  const booking = await loadBooking(id);
+  await dispatchPaymentConfirmationMessages(booking);
+  dispatchBookingUpdated();
+  return booking;
 };

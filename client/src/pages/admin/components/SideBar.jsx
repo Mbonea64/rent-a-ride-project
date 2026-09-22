@@ -5,10 +5,12 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { links } from "../data/SidebarContents.jsx";
 import { CiLogout } from "react-icons/ci";
 import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
 import { signOut } from "../../../redux/user/userSlice.jsx";
 import { showSidebarOrNot } from "../../../redux/adminSlices/adminDashboardSlice/DashboardSlice.jsx";
 import { signOutFromSupabase } from "../../../services/authService";
 import SidebarNotificationLink from "../../../components/SidebarNotificationLink.jsx";
+import { getAdminActionCounts } from "../../../services/actionCenterService.js";
 
 const SideBar = () => {
   const { activeMenu, screenSize } = useSelector(
@@ -17,6 +19,37 @@ const SideBar = () => {
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [actionCounts, setActionCounts] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    const loadActionCounts = () =>
+      getAdminActionCounts()
+        .then((counts) => {
+          if (active) setActionCounts(counts || {});
+        })
+        .catch(() => {
+          if (active) setActionCounts({});
+        });
+
+    loadActionCounts();
+    const interval = window.setInterval(loadActionCounts, 30000);
+    window.addEventListener("rent-a-ride-vehicle-requests-updated", loadActionCounts);
+    window.addEventListener("rent-a-ride-payment-updated", loadActionCounts);
+    window.addEventListener("rent-a-ride-bookings-updated", loadActionCounts);
+    window.addEventListener("rent-a-ride-demo-reset", loadActionCounts);
+    window.addEventListener("storage", loadActionCounts);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("rent-a-ride-vehicle-requests-updated", loadActionCounts);
+      window.removeEventListener("rent-a-ride-payment-updated", loadActionCounts);
+      window.removeEventListener("rent-a-ride-bookings-updated", loadActionCounts);
+      window.removeEventListener("rent-a-ride-demo-reset", loadActionCounts);
+      window.removeEventListener("storage", loadActionCounts);
+    };
+  }, []);
 
   const activeLink =
     "flex items-center gap-5 pl-4 pt-3 pb-2.5 rounded-lg text-black bg-blue-50 text-md  m-2";
@@ -72,6 +105,11 @@ const SideBar = () => {
                   >
                     {link.icon}
                     <span className="text-gray-600">{link.label || link.name}</span>
+                    {Number(actionCounts[link.name] || 0) > 0 && (
+                      <span className="ml-auto mr-3 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                        {actionCounts[link.name]}
+                      </span>
+                    )}
                   </NavLink>
                 ))}
               </div>

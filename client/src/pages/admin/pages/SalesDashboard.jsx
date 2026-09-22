@@ -9,14 +9,13 @@ import {
   FiRefreshCcw,
 } from "react-icons/fi";
 import { formatTZS } from "../../../data/localData";
-import { resetDemoBookingState } from "../../../services/bookingService";
 import {
   addManualSale,
-  clearManualSales,
   deleteManualSale,
   exportSalesCsv,
   getSalesRecords,
   getSalesSummary,
+  resetDemoActivityRecords,
 } from "../../../services/salesService";
 
 const defaultSaleForm = {
@@ -59,9 +58,11 @@ const SalesDashboard = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
 
   const loadSales = () => {
-    getSalesRecords()
+    return getSalesRecords()
       .then(setRecords)
       .catch((error) => console.error("Could not load sales records", error));
   };
@@ -128,12 +129,23 @@ const SalesDashboard = () => {
 
   const handleResetDemoRecords = async () => {
     const confirmed = window.confirm(
-      "Reset demo sales and bookings from the dashboard view? This hides current bookings and clears manual sales for this browser."
+      "Reset all demo activity? This removes visible bookings, sales records, message logs, and notification badges across admin, vendor, and customer dashboards."
     );
     if (!confirmed) return;
-    clearManualSales();
-    await resetDemoBookingState();
-    loadSales();
+    try {
+      setIsResetting(true);
+      setResetMessage("");
+      const clearedBookings = await resetDemoActivityRecords();
+      await loadSales();
+      setResetMessage(
+        `Demo reset complete. Cleared ${clearedBookings} booking${clearedBookings === 1 ? "" : "s"} plus sales, messages, and notifications.`
+      );
+    } catch (error) {
+      console.error("Could not reset demo activity", error);
+      setResetMessage("Reset could not finish. Please try again before recording.");
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (
@@ -156,12 +168,13 @@ const SalesDashboard = () => {
             Export report
           </button>
           <button
-            className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm"
+            className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isResetting}
             onClick={handleResetDemoRecords}
             type="button"
           >
             <FiRefreshCcw />
-            Reset bookings and sales
+            {isResetting ? "Resetting demo..." : "Reset demo data"}
           </button>
           <button
             className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm"
@@ -173,11 +186,16 @@ const SalesDashboard = () => {
           </button>
         </div>
       </div>
+      {resetMessage && (
+        <div className="mb-6 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {resetMessage}
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total revenue" value={formatTZS(summary.totalRevenue)} note="Completed and pending sales" icon={<FiTrendingUp />} />
-        <MetricCard label="Gross profit" value={formatTZS(summary.totalProfit)} note={`${summary.margin.toFixed(1)}% estimated margin`} icon={<FiBarChart2 />} />
-        <MetricCard label="Total sales" value={summary.totalSales} note={`${summary.unitsSold} units sold`} icon={<FiPlus />} />
+        <MetricCard label="Company net" value={formatTZS(summary.companyNetRevenue)} note="Company fleet revenue plus vendor commissions" icon={<FiBarChart2 />} />
+        <MetricCard label="Vendor payouts" value={formatTZS(summary.vendorPayout)} note="Amount payable to vendor fleet owners" icon={<FiPlus />} />
         <MetricCard label="Average order value" value={formatTZS(summary.averageOrderValue)} note="Revenue per sale" icon={<FiTrendingUp />} />
       </div>
 
@@ -273,6 +291,9 @@ const SalesDashboard = () => {
                 <th className="px-4 py-3">Qty</th>
                 <th className="px-4 py-3">Revenue</th>
                 <th className="px-4 py-3">Profit</th>
+                <th className="px-4 py-3">Ownership</th>
+                <th className="px-4 py-3">Rent a Ride cut</th>
+                <th className="px-4 py-3">Vendor payout</th>
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Status</th>
@@ -289,6 +310,16 @@ const SalesDashboard = () => {
                   <td className="px-4 py-4 text-slate-600">{record.quantity}</td>
                   <td className="px-4 py-4 font-medium text-slate-950">{formatTZS(record.revenue)}</td>
                   <td className="px-4 py-4 font-medium text-emerald-700">{formatTZS(record.profit)}</td>
+                  <td className="px-4 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${record.ownershipType === "Vendor fleet" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-700"}`}>
+                      {record.ownershipType || "Company fleet"}
+                    </span>
+                    {record.ownershipType === "Vendor fleet" && (
+                      <p className="mt-1 text-xs text-slate-500">{record.vendorName}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 font-medium text-slate-950">{formatTZS(record.platformCommission || record.revenue)}</td>
+                  <td className="px-4 py-4 font-medium text-sky-700">{formatTZS(record.vendorPayout || 0)}</td>
                   <td className="px-4 py-4 text-slate-600">{record.customerName}</td>
                   <td className="px-4 py-4 text-slate-600">{record.paymentMethod}</td>
                   <td className="px-4 py-4">
@@ -314,7 +345,9 @@ const SalesDashboard = () => {
               ))}
               {filteredRecords.length === 0 && (
                 <tr>
-                  <td className="px-4 py-10 text-center text-slate-500" colSpan={11}>No sales match your current filters.</td>
+                  <td className="px-4 py-10 text-center text-slate-500" colSpan={14}>
+                    No sales records yet. Complete a customer booking and confirm payment to populate this report.
+                  </td>
                 </tr>
               )}
             </tbody>

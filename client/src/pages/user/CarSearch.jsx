@@ -20,10 +20,14 @@ import dayjs from "dayjs";
 import useFetchLocationsLov from "../../hooks/useFetchLocationsLov";
 import { searchAvailableVehicles } from "../../services/vehicleService";
 
+const serviceDistrict = "Dar es Salaam";
+
 const schema = z.object({
   dropoff_location: z.string().min(1, { message: "Dropoff location needed" }),
   pickup_district: z.string().min(1, { message: "Pickup District needed" }),
-  pickup_location: z.string().min(1, { message: "Pickup Location needed" }),
+  pickupDeliveryMode: z.string().default("company_point"),
+  pickup_location: z.string().optional(),
+  deliveryAddress: z.string().optional(),
 
   pickuptime: z.object({
     $d: z.instanceof(Date).refine((date) => date !== null && date !== undefined, {
@@ -47,19 +51,93 @@ const schema = z.object({
     },
     { message: "drop-off time is required" }
   ),
+}).superRefine((value, ctx) => {
+  if (value.pickupDeliveryMode === "company_point" && !value.pickup_location?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pickup_location"],
+      message: "Choose one Rent a Ride pickup yard",
+    });
+  }
+  if (value.pickupDeliveryMode === "deliver_to_me" && !value.deliveryAddress?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["deliveryAddress"],
+      message: "Enter your custom Dar es Salaam delivery location",
+    });
+  }
 });
+
+const darDeliverySuggestions = [
+  "Julius Nyerere International Airport",
+  "Kivukoni Ferry",
+  "Azam Marine Ferry Terminal",
+  "Posta",
+  "Kariakoo",
+  "Ilala",
+  "Upanga",
+  "Muhimbili",
+  "Aga Khan Hospital",
+  "Sea Cliff",
+  "Masaki",
+  "Oyster Bay",
+  "Msasani",
+  "Slipway",
+  "Mikocheni",
+  "Victoria",
+  "Regent Estate",
+  "Ada Estate",
+  "Kinondoni",
+  "Morocco",
+  "Kawe",
+  "Mbezi Beach",
+  "White Sands",
+  "Tegeta",
+  "Bunju",
+  "Kijitonyama",
+  "Sinza",
+  "Mlimani City",
+  "Mwenge",
+  "Ubungo",
+  "Riverside",
+  "Makumbusho",
+  "Magomeni",
+  "Tabata",
+  "Buguruni",
+  "Kurasini",
+  "Temeke",
+  "Tandika",
+  "Chang'ombe",
+  "Mbagala",
+  "Kigamboni",
+  "Kimara",
+  "Goba",
+  "Wazo Hill",
+  "Mbweni",
+  "Kunduchi",
+  "Mbezi Luis",
+  "Kinyerezi",
+  "Ukonga",
+  "Gongolamboto",
+  "Pugu",
+  "Majohe",
+  "Chanika",
+];
 
 const CarSearch = () => {
   const {
     handleSubmit,
     control,
     reset,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      pickup_district: "",
+      pickup_district: serviceDistrict,
+      pickupDeliveryMode: "company_point",
       pickup_location: "",
+      deliveryAddress: "",
       dropoff_location: "",
       pickuptime: null,
       dropofftime: null,
@@ -69,11 +147,12 @@ const CarSearch = () => {
   const navigate = useNavigate();
   const { districtData } = useSelector((state) => state.modelDataSlice);
   const { fetchLov, isLoading } = useFetchLocationsLov();
-  const uniqueDistrict = [...new Set(districtData || [])];
+  const uniqueDistrict = [...new Set(districtData || [])].filter((district) => district === serviceDistrict);
   const { selectedDistrict, wholeData, locationsOfDistrict } = useSelector((state) => state.selectRideSlice);
 
   const [pickup, setPickup] = useState(null);
   const [error, setError] = useState(null);
+  const pickupDeliveryMode = watch("pickupDeliveryMode") || "company_point";
 
   const dispatch = useDispatch();
 
@@ -82,6 +161,10 @@ const CarSearch = () => {
     // fetchModelData(dispatch);
     fetchLov();
   }, [fetchLov]);
+
+  useEffect(() => {
+    dispatch(setSelectedDistrict(serviceDistrict));
+  }, [dispatch]);
 
   //for showing appropriate locations according to districts
   useEffect(() => {
@@ -100,7 +183,14 @@ const CarSearch = () => {
     try {
       if (data) {
         //preserving the selected data for later use
-        dispatch(setSelectedData(data));
+        const selectedData = {
+          ...data,
+          pickup_location:
+            data.pickupDeliveryMode === "deliver_to_me"
+              ? data.deliveryAddress
+              : data.pickup_location,
+        };
+        dispatch(setSelectedData(selectedData));
 
         const pickupDate = data.pickuptime.$d;
         const dropOffDate = data.dropofftime.$d;
@@ -108,13 +198,17 @@ const CarSearch = () => {
           pickupDate,
           dropOffDate,
           pickUpDistrict: data.pickup_district,
-          pickUpLocation: data.pickup_location,
+          pickUpLocation: data.pickupDeliveryMode === "deliver_to_me" ? null : data.pickup_location,
         };
 
         const result = await searchAvailableVehicles(datas);
 
         if (!result.length) {
-          setError("No vehicles found for that pickup point. Try another Tanzania location.");
+          setError(
+            data.pickupDeliveryMode === "deliver_to_me"
+              ? "No vehicles are available for delivery in Dar es Salaam for those dates."
+              : "No vehicles found for that Dar es Salaam pickup point. Try another Rent a Ride space."
+          );
           return;
         }
 
@@ -143,7 +237,7 @@ const CarSearch = () => {
         <div className="container bg-white">
           <div className="book-content   ">
             <div className="book-content__box ">
-              <h2>Book a car</h2>
+              <h2>Find your rental car</h2>
 
               <p className="error-message">
                 All fields required! <IconX width={20} height={20} />
@@ -157,7 +251,7 @@ const CarSearch = () => {
                 <div className="box-form">
                   <div className="box-form__car-type">
                     <label htmlFor="pickup_district">
-                      <IconMapPinFilled className="input-icon" /> &nbsp; Pick-up Region <p className="text-red-500">*</p>
+                      <IconMapPinFilled className="input-icon" /> &nbsp; Service area <p className="text-red-500">*</p>
                     </label>
                     <Controller
                       name="pickup_district"
@@ -180,7 +274,7 @@ const CarSearch = () => {
                               <span className="animate-pulse">Loading</span> <span className="animate-pulse">...</span>
                             </MenuItem>
                           )}
-                          {!isLoading && <MenuItem value="">Select a Place</MenuItem>}
+                          {!isLoading && <MenuItem value="">Select service area</MenuItem>}
                           {uniqueDistrict?.map((cur, idx) => (
                             <MenuItem value={cur} key={idx}>
                               {cur}
@@ -193,8 +287,30 @@ const CarSearch = () => {
                   </div>
 
                   <div className="box-form__car-type ">
+                    <label htmlFor="pickupDeliveryMode">
+                      <IconMapPinFilled className="input-icon" /> &nbsp; Receive car by
+                    </label>
+                    <Controller
+                      name="pickupDeliveryMode"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          id="pickupDeliveryMode"
+                          select
+                          className="md:mb-10 capitalize"
+                        >
+                          <MenuItem value="company_point">Collect from a Rent a Ride yard</MenuItem>
+                          <MenuItem value="deliver_to_me">Deliver to my custom Dar location</MenuItem>
+                        </TextField>
+                      )}
+                    />
+                  </div>
+
+                  {pickupDeliveryMode === "company_point" ? (
+                  <div className="box-form__car-type ">
                     <label htmlFor="pickup_location">
-                      <IconMapPinFilled className="input-icon" /> &nbsp; Pick-up Location <p className="text-red-500">*</p>
+                      <IconMapPinFilled className="input-icon" /> &nbsp; Rent a Ride pickup yard <p className="text-red-500">*</p>
                     </label>
                     <Controller
                       name="pickup_location"
@@ -215,7 +331,7 @@ const CarSearch = () => {
                               <span className="animate-pulse">Loading</span> <span className="animate-pulse">...</span>
                             </MenuItem>
                           )}
-                          {!isLoading && <MenuItem value="">Select a specific location</MenuItem>}
+                          {!isLoading && <MenuItem value="">Choose one of our pickup spaces</MenuItem>}
                           {/* conditionaly rendering options based on district selected or not */}
                           {locationsOfDistrict &&
                             locationsOfDistrict.map((availableLocations, idx) => (
@@ -228,10 +344,39 @@ const CarSearch = () => {
                     />
                     {errors.pickup_location && <p className="text-red-500">{errors.pickup_location.message}</p>}
                   </div>
+                  ) : (
+                    <div className="box-form__car-type ">
+                      <label htmlFor="deliveryAddress">
+                        <IconMapPinFilled className="input-icon" /> &nbsp; Custom delivery location <p className="text-red-500">*</p>
+                      </label>
+                      <Controller
+                        name="deliveryAddress"
+                        control={control}
+                        render={({ field }) => (
+                          <>
+                            <TextField
+                              {...field}
+                              id="deliveryAddress"
+                              className="md:mb-10 capitalize"
+                              inputProps={{ list: "dar-search-delivery-locations" }}
+                              placeholder="Start typing an area in Dar es Salaam"
+                              error={Boolean(errors.deliveryAddress)}
+                            />
+                            <datalist id="dar-search-delivery-locations">
+                              {darDeliverySuggestions.map((location) => (
+                                <option value={location} key={location} />
+                              ))}
+                            </datalist>
+                          </>
+                        )}
+                      />
+                      {errors.deliveryAddress && <p className="text-red-500">{errors.deliveryAddress.message}</p>}
+                    </div>
+                  )}
 
                   <div className="box-form__car-type">
                     <label>
-                      <IconMapPinFilled className="input-icon" /> &nbsp; Drop-off Location <p className="text-red-500">*</p>
+                      <IconMapPinFilled className="input-icon" /> &nbsp; Return space <p className="text-red-500">*</p>
                     </label>
 
                     <Controller

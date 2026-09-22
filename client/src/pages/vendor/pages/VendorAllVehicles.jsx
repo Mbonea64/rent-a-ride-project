@@ -20,6 +20,7 @@ import { GrStatusGood } from "react-icons/gr";
 import { MdOutlinePending } from "react-icons/md";
 import VendorHeader from "../Components/VendorHeader";
 import { getVendorVehicles } from "../../../services/vehicleService";
+import VehicleArtwork from "../../../components/VehicleArtwork";
 
 
 const VendorAllVehicles = () => {
@@ -59,15 +60,11 @@ const VendorAllVehicles = () => {
       headerName: "Image",
       width: 100,
       renderCell: (params) => (
-        <img
+        <VehicleArtwork
           src={params.value}
-          style={{
-            width: "50px",
-            height: "40px",
-            borderRadius: "5px",
-            objectFit: "cover",
-          }}
           alt="vehicle"
+          fit="cover"
+          className="h-10 w-14 rounded-md"
         />
       ),
     },
@@ -129,7 +126,7 @@ const VendorAllVehicles = () => {
       .filter((vehicle) => vehicle.isDeleted === "false")
       .map((vehicle) => ({
         id: vehicle._id,
-        image: vehicle.image[0],
+        image: vehicle.image?.[0] || "",
         registeration_number: vehicle.registeration_number,
         company: vehicle.company,
         name: vehicle.name,

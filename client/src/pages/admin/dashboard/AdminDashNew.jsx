@@ -34,15 +34,15 @@ function AdminDashNew() {
         )}
 
         <div
-          className={`dark:bg-white bg-white min-h-screen w-full ${
-            activeMenu ? "ml-72 md:ml-72" : "flex-2"
+          className={`dark:bg-white bg-white min-h-screen min-w-0 ${
+            activeMenu ? "ml-72 w-[calc(100%-18rem)] md:ml-72" : "w-full flex-1"
           } `}
         >
           <div className={`fixed md:static bg-white  w-full   `}>
             <Navbar />
           </div>
 
-          <div className="main_section mx-8  ">
+          <div className="main_section mx-4 min-w-0 overflow-x-hidden md:mx-8">
             <Routes>
               <Route path="/" element={<AdminHomeMain/>}/>
               <Route path="/adminHome" element={<AdminHomeMain />} />

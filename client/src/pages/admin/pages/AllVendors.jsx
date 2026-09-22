@@ -13,18 +13,27 @@ const AllVendors = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      getVendors().catch(() => []),
-      getAllVehicles().catch(() => []),
-      getBookings().catch(() => []),
-    ]).then(([vendorData, vehicleData, bookingData]) => {
-      if (!active) return;
-      setVendors(vendorData || []);
-      setVehicles(vehicleData || []);
-      setBookings(bookingData || []);
-    });
+    const load = () =>
+      Promise.all([
+        getVendors().catch(() => []),
+        getAllVehicles().catch(() => []),
+        getBookings().catch(() => []),
+      ]).then(([vendorData, vehicleData, bookingData]) => {
+        if (!active) return;
+        setVendors(vendorData || []);
+        setVehicles(vehicleData || []);
+        setBookings(bookingData || []);
+      });
+
+    load();
+    window.addEventListener("rent-a-ride-demo-reset", load);
+    window.addEventListener("rent-a-ride-payment-updated", load);
+    window.addEventListener("storage", load);
     return () => {
       active = false;
+      window.removeEventListener("rent-a-ride-demo-reset", load);
+      window.removeEventListener("rent-a-ride-payment-updated", load);
+      window.removeEventListener("storage", load);
     };
   }, []);
 

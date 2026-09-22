@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useDispatch } from "react-redux";
 import { signInSuccess } from "../../../redux/user/userSlice";
 import { signUpWithPassword } from "../../../services/authService";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const schema = z.object({
   username: z.string().min(3, { message: "minimum 3 characters required" }),
@@ -21,6 +22,7 @@ const schema = z.object({
 });
 
 function VendorSignup() {
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -77,7 +79,7 @@ function VendorSignup() {
         >
           <div>
             <input
-              type="password"
+              type="text"
               id="username"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="UserName"
@@ -92,7 +94,7 @@ function VendorSignup() {
 
           <div>
             <input
-              type="text"
+              type="email"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"
@@ -104,13 +106,23 @@ function VendorSignup() {
           </div>
 
           <div>
+            <div className="relative">
             <input
-              type="text"
+              type={showPassword ? "text" : "password"}
               id="password"
-              className="text-black bg-slate-100 p-3 rounded-md w-full"
+              className="w-full rounded-md bg-slate-100 p-3 pr-12 text-black"
               placeholder="Password"
               {...register("password")}
             />
+            <button
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-600 hover:bg-slate-200"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+            </div>
             {errors.password && (
               <p className="text-red-500 text-[10px]">
                 {errors.password.message}

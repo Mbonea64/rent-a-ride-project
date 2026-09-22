@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signUpWithPassword } from "../../services/authService";
 import { useDispatch } from "react-redux";
 import { signInSuccess } from "../../redux/user/userSlice";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 //zod validation schema
 const schema = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
 });
 
 function SignUp() {
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -76,7 +78,7 @@ function SignUp() {
         >
           <div>
             <input
-              type="password"
+              type="text"
               id="username"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="UserName"
@@ -92,7 +94,7 @@ function SignUp() {
 
           <div>
             <input
-              type="text"
+              type="email"
               id="email"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Email"
@@ -107,13 +109,23 @@ function SignUp() {
           </div>
 
           <div>
+            <div className="relative">
             <input
-              type="text"
+              type={showPassword ? "text" : "password"}
               id="password"
-              className="text-black bg-slate-100 p-3 rounded-md w-full"
+              className="w-full rounded-md bg-slate-100 p-3 pr-12 text-black"
               placeholder="Password"
               {...register("password", { required: true, minLength: 6 })}
             />
+            <button
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-600 hover:bg-slate-200"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+            </div>
             {errors.password && (
               <p className="text-red-500 text-[8px] pt-1">
                 {errors.password.message}

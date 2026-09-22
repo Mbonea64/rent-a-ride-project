@@ -176,32 +176,34 @@ function AllVehicles() {
         {adminCrudError ? <Toaster/> : ""}     
         
         
-      <div className="max-w-[1100px] d-flex justify-end text-start items-end p-10">
+      <div className="w-full max-w-full overflow-hidden p-4 text-start md:p-8">
         <Header category="Fleet" title="Vehicle Inventory" />
-        <Box sx={{ height: "100%", width: "100%" }}>
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            initialState={{
-              pagination: {
-                paginationModel: {
-                  pageSize: 8,
+        <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <Box sx={{ height: "100%", minWidth: 1180, width: "100%" }}>
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              initialState={{
+                pagination: {
+                  paginationModel: {
+                    pageSize: 8,
+                  },
                 },
-              },
-            }}
-            pageSizeOptions={[5]}
-            checkboxSelection
-            disableRowSelectionOnClick
-            sx={{
-              ".MuiDataGrid-columnSeparator": {
-                display: "none",
-              },
-              "&.MuiDataGrid-root": {
-                border: "none",
-              },
-            }}
-          />
-        </Box>
+              }}
+              pageSizeOptions={[5]}
+              checkboxSelection
+              disableRowSelectionOnClick
+              sx={{
+                ".MuiDataGrid-columnSeparator": {
+                  display: "none",
+                },
+                "&.MuiDataGrid-root": {
+                  border: "none",
+                },
+              }}
+            />
+          </Box>
+        </div>
       </div>
     </>
   );

@@ -8,7 +8,7 @@ export const toAppUser = (profile, authUser) => {
   return {
     _id: profile.id,
     username: profile.username,
-    email: authUser.email,
+    email: profile.email || authUser.email,
     phoneNumber: profile.phone_number || "",
     adress: profile.address || "",
     profilePicture: profile.avatar_url || "",
@@ -36,6 +36,9 @@ export const getCurrentUser = async () => {
     .single();
 
   if (error) throw error;
+  if (user.email && profile.email !== user.email) {
+    await client.from("profiles").update({ email: user.email }).eq("id", user.id);
+  }
   return toAppUser(profile, user);
 };
 
@@ -111,6 +114,7 @@ export const updateCurrentProfile = async ({ username, email, phoneNumber, adres
     .from("profiles")
     .update({
       username,
+      email: email || user.email || null,
       phone_number: phoneNumber || null,
       address: adress || null,
     })

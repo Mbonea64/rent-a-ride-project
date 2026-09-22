@@ -1,6 +1,11 @@
-import { getBookings } from "./bookingService";
+import { getBookings, resetDemoBookingState } from "./bookingService";
+import { clearCompanyDispatchLog } from "./companyNotificationService";
+import { clearDemoOpsChannel, shouldShowInVendorDashboard } from "./demoOpsService";
+import { clearAllNotificationReadState } from "./notificationService";
+import { getVendorVehicles } from "./vehicleService";
 
 const manualSalesKey = "rent_a_ride_manual_sales_records";
+export const vendorCommissionRate = 0.15;
 
 const safeNumber = (value) => {
   const number = Number(value);
@@ -71,9 +76,28 @@ export const clearManualSales = () => {
   writeManualSales([]);
 };
 
+export const resetDemoActivityRecords = async () => {
+  clearManualSales();
+  clearCompanyDispatchLog();
+  clearAllNotificationReadState();
+  clearDemoOpsChannel();
+  const clearedBookings = await resetDemoBookingState();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("rent-a-ride-demo-reset"));
+    window.dispatchEvent(new Event("rent-a-ride-payment-updated"));
+    window.dispatchEvent(new Event("storage"));
+  }
+  return clearedBookings;
+};
+
 const bookingToSale = (booking) => {
   const revenue = safeNumber(booking.totalPrice);
   const estimatedCost = Math.round(revenue * 0.62);
+  const isVendorFleet = Boolean(booking.vehicleDetails?.addedBy && !booking.vehicleDetails?.isAdminAdded);
+  const commissionRate = isVendorFleet ? vendorCommissionRate : 1;
+  const platformCommission = isVendorFleet ? Math.round(revenue * vendorCommissionRate) : revenue;
+  const vendorPayout = isVendorFleet ? Math.max(revenue - platformCommission, 0) : 0;
+  const companyNetRevenue = isVendorFleet ? platformCommission : revenue;
   return calculateSale({
     id: `booking-${booking._id}`,
     source: "booking",
@@ -87,6 +111,14 @@ const bookingToSale = (booking) => {
     customerName: booking.contact_email || booking.bookingDetails?.contactPhone || "Customer",
     paymentMethod: getPaymentMethod(booking),
     status: booking.status === "canceled" ? "Cancelled" : booking.paymentStatus === "paid" ? "Completed" : "Pending",
+    ownershipType: isVendorFleet ? "Vendor fleet" : "Company fleet",
+    vendorId: booking.vehicleDetails?.addedBy || null,
+    vendorName: isVendorFleet ? booking.vehicleDetails?.ownerProfile?.username || "Vendor account" : "Rent a Ride",
+    commissionRate,
+    platformCommission,
+    vendorPayout,
+    companyNetRevenue,
+    payoutStatus: booking.paymentStatus === "paid" && isVendorFleet ? "Payable" : isVendorFleet ? "Pending payment" : "Not applicable",
     notes: "Generated from booking record",
   });
 };
@@ -96,6 +128,17 @@ export const getSalesRecords = async () => {
   return [...bookings.map(bookingToSale), ...readManualSales()].sort(
     (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
   );
+};
+
+export const getVendorSalesRecords = async () => {
+  const [bookings, vendorVehicles] = await Promise.all([
+    getBookings().catch(() => []),
+    getVendorVehicles().catch(() => []),
+  ]);
+  return bookings
+    .filter((booking) => shouldShowInVendorDashboard(booking, vendorVehicles))
+    .map(bookingToSale)
+    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
 };
 
 export const getSalesSummary = (records = []) => {
@@ -115,6 +158,9 @@ export const getSalesSummary = (records = []) => {
     unitsSold,
     averageOrderValue,
     margin,
+    platformCommission: completed.reduce((sum, record) => sum + safeNumber(record.platformCommission), 0),
+    vendorPayout: completed.reduce((sum, record) => sum + safeNumber(record.vendorPayout), 0),
+    companyNetRevenue: completed.reduce((sum, record) => sum + safeNumber(record.companyNetRevenue), 0),
   };
 };
 
@@ -129,6 +175,10 @@ export const exportSalesCsv = (records = []) => {
     "Cost Price",
     "Revenue",
     "Profit",
+    "Ownership",
+    "Vendor",
+    "Platform Commission",
+    "Vendor Payout",
     "Customer",
     "Payment Method",
     "Status",
@@ -143,6 +193,10 @@ export const exportSalesCsv = (records = []) => {
     record.costPrice,
     record.revenue,
     record.profit,
+    record.ownershipType || "Company fleet",
+    record.vendorName || "Rent a Ride",
+    record.platformCommission || 0,
+    record.vendorPayout || 0,
     record.customerName,
     record.paymentMethod,
     record.status,

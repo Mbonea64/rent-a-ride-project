@@ -4,7 +4,7 @@ import { addVehicleClicked } from "../../../redux/adminSlices/actions";
 import { useForm, Controller } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MenuItem } from "@mui/material";
 
 import Box from "@mui/material/Box";
@@ -18,7 +18,13 @@ import { createVehicle } from "../../../services/vehicleService";
 import { loadCatalogMetadata } from "../../../utils/loadCatalogMetadata";
 
 const AddProductModal = () => {
-  const { register, handleSubmit, control , reset } = useForm();
+  const { register, handleSubmit, control , reset, formState: { errors } } = useForm();
+  const [vehiclePreview, setVehiclePreview] = useState("");
+  const [documentPreviews, setDocumentPreviews] = useState({
+    insurance: "",
+    registration: "",
+    pollution: "",
+  });
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAddVehicleClicked } = useSelector((state) => state.addVehicle);
@@ -32,19 +38,79 @@ const AddProductModal = () => {
     dispatch(addVehicleClicked(true))
   }, [dispatch]);
 
+  const updatePreview = (setter) => (event) => {
+    const [file] = Array.from(event.target.files || []);
+    setter((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file ? URL.createObjectURL(file) : "";
+    });
+  };
+
+  const updateDocumentPreview = (type, event) => {
+    const [file] = Array.from(event.target.files || []);
+    setDocumentPreviews((current) => {
+      if (current[type]) URL.revokeObjectURL(current[type]);
+      return {
+        ...current,
+        [type]: file ? URL.createObjectURL(file) : "",
+      };
+    });
+  };
+
+  const vehicleImageRegister = register("image", {
+    required: "Upload at least one vehicle image",
+    onChange: updatePreview(setVehiclePreview),
+  });
+
+  const insuranceImageRegister = register("insurance_image", {
+    required: "Upload the insurance document image",
+    onChange: (event) => updateDocumentPreview("insurance", event),
+  });
+
+  const registrationImageRegister = register("rc_book_image", {
+    required: "Upload the RC book document image",
+    onChange: (event) => updateDocumentPreview("registration", event),
+  });
+
+  const pollutionImageRegister = register("polution_image", {
+    required: "Upload the pollution certificate image",
+    onChange: (event) => updateDocumentPreview("pollution", event),
+  });
+
+  useEffect(() => () => {
+    if (vehiclePreview) URL.revokeObjectURL(vehiclePreview);
+  }, [vehiclePreview]);
+
+  useEffect(() => () => {
+    Object.values(documentPreviews).forEach((preview) => {
+      if (preview) URL.revokeObjectURL(preview);
+    });
+  }, [documentPreviews]);
+
   const onSubmit = async (addData) => {
-   
+    let tostID;
     try {
-      const img = [];
-      for (let i = 0; i < addData.image.length; i++) {
-        img.push(addData.image[i]);
+      const img = Array.from(addData.image || []);
+      if (!img.length) {
+        toast.error("Please upload at least one vehicle image.");
+        return;
       }
       const formData = new FormData();
+      const appendIfPresent = (key, value) => {
+        const normalized = value?.$d || value;
+        if (normalized !== undefined && normalized !== null && normalized !== "") {
+          formData.append(key, normalized);
+        }
+      };
+
       formData.append("registeration_number", addData.registeration_number);
       formData.append("company", addData.company);
       img.forEach((file) => {
         formData.append(`image`, file); // Append each file with a unique key
       });
+      Array.from(addData.insurance_image || []).forEach((file) => formData.append("insurance_image", file));
+      Array.from(addData.rc_book_image || []).forEach((file) => formData.append("rc_book_image", file));
+      Array.from(addData.polution_image || []).forEach((file) => formData.append("polution_image", file));
       formData.append("name", addData.name);
       formData.append("model", addData.model);
       formData.append("title", addData.title);
@@ -55,32 +121,35 @@ const AddProductModal = () => {
       formData.append("fuel_type", addData.fuelType);
       formData.append("seat", addData.Seats);
       formData.append("transmition_type", addData.transmitionType);
-      formData.append("insurance_end_date", addData.insurance_end_date.$d);
-      formData.append("registeration_end_date", addData.Registeration_end_date.$d);
-      formData.append("polution_end_date", addData.polution_end_date.$d);
+      appendIfPresent("insurance_end_date", addData.insurance_end_date);
+      appendIfPresent("registeration_end_date", addData.Registeration_end_date);
+      appendIfPresent("polution_end_date", addData.polution_end_date);
       formData.append("car_type", addData.carType);
       formData.append("location", addData.vehicleLocation);
       formData.append("district", addData.vehicleDistrict
       );
    
 
-      let tostID;
-      if (formData) {
-        tostID = toast.loading("saving...", { position: "bottom-center" });
-        dispatch(setLoading(true))
-      }
+      tostID = toast.loading("Uploading vehicle...", { position: "bottom-center" });
+      dispatch(setLoading(true))
       await createVehicle(formData);
       dispatch(setadminAddVehicleSuccess(true));
-      toast.dismiss(tostID)
+      toast.success("Vehicle added with document images");
       dispatch(setLoading(false))
 
       reset();
+      setVehiclePreview("");
+      setDocumentPreviews({ insurance: "", registration: "", pollution: "" });
+      dispatch(addVehicleClicked(false));
+      navigate("/adminDashboard/allProduct");
     } catch (error) {
       dispatch(setadminCrudError(true))
       console.log(error);
+      toast.error(error?.message || "Could not upload the vehicle documents. Please try again.");
+    } finally {
+      if (tostID) toast.dismiss(tostID)
+      dispatch(setLoading(false))
     }
-    dispatch(addVehicleClicked(false));
-    navigate("/adminDashboard/allProduct");
   };
 
   const handleClose = () => {
@@ -89,7 +158,7 @@ const AddProductModal = () => {
 
   return (
     <>
-    {loading  ? <Toaster/> : null }
+    <Toaster/>
       {isAddVehicleClicked && (
         <div>
           <button onClick={handleClose} className="relative left-10 top-5">
@@ -396,9 +465,28 @@ const AddProductModal = () => {
                         aria-describedby="user_avatar_help"
                         id="insurance_image"
                         type="file"
+                        accept="image/*"
                         multiple
-                        {...register("insurance_image")}
+                        {...insuranceImageRegister}
                       />
+                      {errors.insurance_image && (
+                        <p className="mt-2 text-xs font-medium text-red-600">
+                          {errors.insurance_image.message}
+                        </p>
+                      )}
+                      <div className="mt-3 h-28 w-full overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                        {documentPreviews.insurance ? (
+                          <img
+                            src={documentPreviews.insurance}
+                            alt="Selected insurance document preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-slate-500">
+                            Insurance preview appears here
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="max-w-[300px] sm:max-w-[600px]">
@@ -413,9 +501,28 @@ const AddProductModal = () => {
                         aria-describedby="user_avatar_help"
                         id="rc_book_image"
                         type="file"
+                        accept="image/*"
                         multiple
-                        {...register("rc_book_image")}
+                        {...registrationImageRegister}
                       />
+                      {errors.rc_book_image && (
+                        <p className="mt-2 text-xs font-medium text-red-600">
+                          {errors.rc_book_image.message}
+                        </p>
+                      )}
+                      <div className="mt-3 h-28 w-full overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                        {documentPreviews.registration ? (
+                          <img
+                            src={documentPreviews.registration}
+                            alt="Selected RC book document preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-slate-500">
+                            RC book preview appears here
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="max-w-[300px] sm:max-w-[600px]">
                       <label
@@ -429,9 +536,28 @@ const AddProductModal = () => {
                         aria-describedby="user_avatar_help"
                         id="polution_image"
                         type="file"
+                        accept="image/*"
                         multiple
-                        {...register("polution_image")}
+                        {...pollutionImageRegister}
                       />
+                      {errors.polution_image && (
+                        <p className="mt-2 text-xs font-medium text-red-600">
+                          {errors.polution_image.message}
+                        </p>
+                      )}
+                      <div className="mt-3 h-28 w-full overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                        {documentPreviews.pollution ? (
+                          <img
+                            src={documentPreviews.pollution}
+                            alt="Selected pollution certificate preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-slate-500">
+                            Pollution certificate preview appears here
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="max-w-[300px] sm:max-w-[600px]">
@@ -446,9 +572,28 @@ const AddProductModal = () => {
                         aria-describedby="user_avatar_help"
                         id="image"
                         type="file"
+                        accept="image/*"
                         multiple
-                        {...register("image")}
+                        {...vehicleImageRegister}
                       />
+                      {errors.image && (
+                        <p className="mt-2 text-xs font-medium text-red-600">
+                          {errors.image.message}
+                        </p>
+                      )}
+                      <div className="mt-3 h-28 w-full overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                        {vehiclePreview ? (
+                          <img
+                            src={vehiclePreview}
+                            alt="Selected vehicle preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-slate-500">
+                            Vehicle photo preview appears here
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
