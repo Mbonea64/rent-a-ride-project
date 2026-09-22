@@ -3,9 +3,17 @@ import { DataGrid } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import { FiMapPin } from "react-icons/fi";
 import DemoTripMonitor from "../../../components/DemoTripMonitor";
-import { confirmBookingPayment, getBookings } from "../../../services/bookingService";
+import {
+  confirmBookingPayment,
+  getBookings,
+  setBookingPaymentReviewStatus,
+} from "../../../services/bookingService";
 import { getDemoVendorForBooking } from "../../../services/demoOpsService";
-import { getBookingLifecycleLabel, isBookingPaid } from "../../../services/notificationService";
+import {
+  getBookingLifecycleLabel,
+  isBookingPaid,
+  isPaymentSubmitted,
+} from "../../../services/notificationService";
 
 const BookingsTable = ({ bookings: scopedBookings }) => {
   const [bookings, setBookings] = useState(scopedBookings || []);
@@ -28,6 +36,23 @@ const BookingsTable = ({ bookings: scopedBookings }) => {
       await confirmBookingPayment(booking.id, {
         provider: booking.paymentProvider || "Admin verified",
         reference: booking.paymentReference || `ADMIN-${String(booking.id).slice(0, 8).toUpperCase()}`,
+      });
+      fetchBookings();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handlePaymentStatusChange = async (booking, status) => {
+    try {
+      if (status === "paid") {
+        await handleConfirmPayment(booking);
+        return;
+      }
+      await setBookingPaymentReviewStatus(booking.id, {
+        status,
+        provider: booking.paymentProvider || "Admin review",
+        reference: booking.paymentReference || "",
       });
       fetchBookings();
     } catch (error) {
@@ -123,21 +148,34 @@ const BookingsTable = ({ bookings: scopedBookings }) => {
     {
       field: "Payment_Action",
       headerName: "Payment Action",
-      width: 190,
+      width: 260,
       renderCell: (params) =>
         params.row.isPaid ? (
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
             Confirmed
           </span>
         ) : (
-          <button
-            className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
-            onClick={() => handleConfirmPayment(params.row)}
-            type="button"
-            title={params.row.paymentReference ? `Confirm code ${params.row.paymentReference}` : "No customer code submitted"}
-          >
-            Confirm payment
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
+              onClick={() => handleConfirmPayment(params.row)}
+              type="button"
+              title={params.row.paymentReference ? `Confirm code ${params.row.paymentReference}` : "No customer code submitted"}
+            >
+              Confirm
+            </button>
+            <select
+              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700"
+              onChange={(event) => handlePaymentStatusChange(params.row, event.target.value)}
+              value={params.row.paymentStatus || "pending"}
+            >
+              <option value="pending">Payment pending</option>
+              <option value="submitted">Submitted</option>
+              <option value="awaiting_confirmation">Awaiting order</option>
+              <option value="under_review">Under review</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
         ),
     },
     {
@@ -191,8 +229,15 @@ const BookingsTable = ({ bookings: scopedBookings }) => {
       isPaid: isBookingPaid(cur),
       paymentProvider: cur.paymentProvider || cur.bookingDetails?.paymentMethod,
       paymentReference: cur.paymentReference || cur.bookingDetails?.paymentReference,
+      paymentStatus: cur.paymentStatus,
       Payment_Code: cur.paymentReference || cur.bookingDetails?.paymentReference || "",
-      Vehicle_Status: cur.status,
+      Vehicle_Status: cur.status === "canceled"
+        ? "Canceled"
+        : isBookingPaid(cur)
+          ? "Car booked"
+          : isPaymentSubmitted(cur) || cur.paymentReference || cur.bookingDetails?.paymentReference
+            ? "Booking in progress"
+            : "Awaiting payment",
       booking: cur,
     }));
 

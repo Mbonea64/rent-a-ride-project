@@ -179,6 +179,26 @@ const sendEmailMessage = async ({ to, subject, html, text }) => {
   return data || { delivered: false, mode: "unknown" };
 };
 
+export const sendVendorVehicleStatusEmail = async ({ to, vehicleName, status, note }) => {
+  const settings = getCompanyNotificationSettings();
+  if (!to) return { delivered: false, mode: "missing_recipient" };
+  const subject = `${settings.companyName}: Vehicle ${status}`;
+  const text = `${settings.companyName}: ${vehicleName} is ${status}. ${note || ""}`.trim();
+  return sendEmailMessage({
+    to,
+    subject,
+    text,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #14213d; line-height: 1.5;">
+        <h2 style="margin: 0 0 12px;">Vehicle ${escapeHtml(status)}</h2>
+        <p><strong>${escapeHtml(vehicleName)}</strong></p>
+        ${note ? `<p>${escapeHtml(note)}</p>` : ""}
+        <p>Contact ${escapeHtml(settings.companyName)} on ${escapeHtml(settings.supportPhone)} or ${escapeHtml(settings.supportEmail)} for support.</p>
+      </div>
+    `,
+  });
+};
+
 const getEmailDispatchStatus = (result = {}) => {
   if (result.delivered) return "sent";
   if (["not_configured", "missing_recipient", "demo"].includes(result.mode)) return "not configured";

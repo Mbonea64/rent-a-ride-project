@@ -13,6 +13,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { IoMdClose } from "react-icons/io";
 import { addVehicleClicked } from "../../../redux/adminSlices/actions";
 import { createVehicle } from "../../../services/vehicleService";
+import { sendVendorVehicleStatusEmail } from "../../../services/companyNotificationService";
 import { loadCatalogMetadata } from "../../../utils/loadCatalogMetadata";
 
 const fieldSx = {
@@ -262,6 +263,7 @@ const VendorAddProductModal = () => {
   const { modelData, companyData, locationData, districtData } = useSelector(
     (state) => state.modelDataSlice
   );
+  const currentUser = useSelector((state) => state.user.currentUser);
   const makeOptions = uniqSorted([
     ...Object.keys(CAR_MODEL_LIBRARY),
     ...(companyData || []),
@@ -386,7 +388,13 @@ const VendorAddProductModal = () => {
 
       tostID = toast.loading("Uploading vehicle...", { position: "bottom-center" });
 
-      await createVehicle(formData);
+      const createdVehicle = await createVehicle(formData);
+      sendVendorVehicleStatusEmail({
+        to: currentUser?.email,
+        vehicleName: [createdVehicle?.company, createdVehicle?.model || createdVehicle?.name].filter(Boolean).join(" ") || addData.name,
+        status: "awaiting approval",
+        note: "Your vehicle has been submitted to Rent a Ride for inspection and eligibility review.",
+      }).catch(() => null);
       toast.success("Vehicle request sent to admin");
 
       reset();
@@ -779,13 +787,13 @@ const VendorAddProductModal = () => {
                     control={control}
                     name="vehicleDistrict"
                     defaultValue=""
-                    rules={{ required: "Vehicle district is required" }}
+                    rules={{ required: "Company inspection yard district is required" }}
                     render={({ field, fieldState }) => (
                       <TextField
                         {...field}
                         id="vehicleDistrict"
                         select
-                        label="Vehicle district"
+                        label="Company inspection yard district"
                         error={Boolean(fieldState.error)}
                         helperText={fieldState.error?.message}
                       >
@@ -801,13 +809,13 @@ const VendorAddProductModal = () => {
                     control={control}
                     name="vehicleLocation"
                     defaultValue=""
-                    rules={{ required: "Vehicle location is required" }}
+                    rules={{ required: "Company inspection yard location is required" }}
                     render={({ field, fieldState }) => (
                       <TextField
                         {...field}
                         id="vehicleLocation"
                         select
-                        label="Vehicle location"
+                        label="Company inspection yard location"
                         error={Boolean(fieldState.error)}
                         helperText={fieldState.error?.message}
                       >

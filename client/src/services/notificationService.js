@@ -143,6 +143,18 @@ export const buildVehicleRequestNotifications = ({ vehicles = [] }) =>
     };
   });
 
+export const buildVehicleIssueNotifications = ({ reports = [] }) =>
+  reports
+    .filter((report) => report.status === "open")
+    .slice(0, 6)
+    .map((report) => ({
+      id: `${report.id}-vehicle-issue`,
+      tone: "warning",
+      title: "Vendor vehicle issue reported",
+      body: `${report.vehicleName} was reported by ${report.vendorName}. ${report.reason}. ${report.note || "Open Fleet to update, hide, delete, or mark it attended."}`,
+      time: formatWhen(report.createdAt),
+    }));
+
 const readKey = (role) => `rent_a_ride_read_notifications_${role}`;
 
 export const getReadNotificationIds = (role = "admin") => {

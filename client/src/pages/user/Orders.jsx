@@ -37,18 +37,25 @@ export default function Orders() {
         .then((data) => active && setBookings(data))
         .catch((error) => console.error("Could not load bookings", error));
     refreshBookings();
+    const interval = window.setInterval(refreshBookings, 5000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) refreshBookings();
+    };
     window.addEventListener("storage", refreshBookings);
     window.addEventListener("rent-a-ride-payment-updated", refreshBookings);
     window.addEventListener("rent-a-ride-bookings-updated", refreshBookings);
     window.addEventListener("rent-a-ride-demo-clock-updated", refreshBookings);
     window.addEventListener("rent-a-ride-demo-reset", refreshBookings);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       active = false;
+      window.clearInterval(interval);
       window.removeEventListener("storage", refreshBookings);
       window.removeEventListener("rent-a-ride-payment-updated", refreshBookings);
       window.removeEventListener("rent-a-ride-bookings-updated", refreshBookings);
       window.removeEventListener("rent-a-ride-demo-clock-updated", refreshBookings);
       window.removeEventListener("rent-a-ride-demo-reset", refreshBookings);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 

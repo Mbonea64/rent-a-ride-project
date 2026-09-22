@@ -14,13 +14,15 @@ import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { setadminEditVehicleSuccess } from "../../../redux/adminSlices/adminDashboardSlice/StatusSlice";
-import { updateVehicle } from "../../../services/vehicleService";
+import { getAllVehicles, updateVehicle } from "../../../services/vehicleService";
+import { useEffect, useState } from "react";
 
 export default function EditProductComponent() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { register, handleSubmit, control, reset } = useForm();
+  const [remoteVehicle, setRemoteVehicle] = useState(null);
   const { userAllVehicles } = useSelector((state) => state.userListVehicles);
   const { modelData, companyData, locationData, districtData } = useSelector(
     (state) => state.modelDataSlice
@@ -30,12 +32,23 @@ export default function EditProductComponent() {
   const queryParams = new URLSearchParams(location.search);
   const vehicle_id = queryParams.get("vehicle_id");
 
-  let updateingItem = "";
-  userAllVehicles.forEach((cur) => {
-    if (cur._id === vehicle_id) {
-      updateingItem = cur;
-    }
-  });
+  const updateingItem =
+    userAllVehicles.find((cur) => cur._id === vehicle_id) || remoteVehicle || {};
+  const isVendorFleet = Boolean(updateingItem?._id && !updateingItem.isAdminAdded);
+
+  useEffect(() => {
+    if (!vehicle_id || updateingItem?._id) return;
+    let active = true;
+    getAllVehicles()
+      .then((vehicles) => {
+        if (!active) return;
+        setRemoteVehicle((vehicles || []).find((vehicle) => vehicle._id === vehicle_id) || null);
+      })
+      .catch((error) => console.error("Could not load vehicle for edit", error));
+    return () => {
+      active = false;
+    };
+  }, [vehicle_id, updateingItem?._id]);
 
   const insuranceDefaultDate = updateingItem.insurance_end
     ? dayjs(new Date(updateingItem.insurance_end))
@@ -48,6 +61,10 @@ export default function EditProductComponent() {
     : null;
 
   const onEditSubmit = async (editData) => {
+    if (isVendorFleet) {
+      toast.error("Vendor-owned cars are read-only for admin. Use review, hide/delete, or vendor edit approvals.");
+      return;
+    }
     let tostID;
     try {
       if (editData && vehicle_id) {
@@ -73,32 +90,70 @@ export default function EditProductComponent() {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-slate-100 px-4 py-6">
       <button onClick={handleClose} className="relative left-10 top-5">
         <div className="padding-5 padding-2 rounded-full bg-slate-100 drop-shadow-md hover:shadow-lg hover:bg-blue-200 hover:translate-y-1 hover:translate-x-1 ">
           <IoMdClose style={{ fontSize: "30" }} />
         </div>
       </button>
       <form onSubmit={handleSubmit(onEditSubmit)}>
-        <div className="bg-white -z-10 max-w-[1000px] mx-auto">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-white px-6 py-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+              Admin fleet editor
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-950">
+              {isVendorFleet ? "View vendor vehicle record" : "Edit vehicle record"}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Review the same vehicle information submitted by the vendor, including ownership authority,
+              readiness, GPS tracker status, documents, and customer-facing listing details.
+            </p>
+            <div className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm md:grid-cols-4">
+              <div>
+                <p className="font-semibold text-slate-500">Owner</p>
+                <p className="mt-1 text-slate-950">
+                  {updateingItem.isAdminAdded ? "Rent a Ride" : updateingItem.ownerProfile?.username || "Vendor"}
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-500">Plate</p>
+                <p className="mt-1 text-slate-950">{updateingItem.registeration_number || "Not set"}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-500">Approval</p>
+                <p className="mt-1 capitalize text-slate-950">
+                  {updateingItem.approval_status || (updateingItem.isAdminApproved ? "approved" : "pending")}
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-500">Documents</p>
+                <p className="mt-1 text-slate-950">
+                  {updateingItem.vehicleDocuments?.length || updateingItem.documents?.length || 0} uploaded
+                </p>
+              </div>
+            </div>
+            {isVendorFleet && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                Vendor-owned cars are read-only for admin. Use approve/reject, hide/delete, or vendor edit approvals to control changes.
+              </div>
+            )}
+          </div>
           <Box
             sx={{
               "& .MuiTextField-root": {
-                m: 4,
-                width: "25ch",
+                m: 1.5,
+                width: "100%",
                 color: "black", // Set text color to black
                 "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "black", // Set outline color to black
-                },
-                "@media (max-width: 640px)": {
-                  width: "30ch",
+                  borderColor: "#cbd5e1",
                 },
               },
             }}
             noValidate
             autoComplete="off"
           >
-            <div>
+            <div className="grid gap-2 px-6 py-6 md:grid-cols-2 xl:grid-cols-3">
               <TextField
                 required
                 id="registeration_number"
@@ -209,7 +264,7 @@ export default function EditProductComponent() {
               ></Controller>
             </div>
 
-            <div>
+            <div className="grid gap-2 border-t border-slate-200 px-6 py-6 md:grid-cols-2 xl:grid-cols-3">
               <Controller
                 name="carType"
                 control={control}
@@ -330,7 +385,107 @@ export default function EditProductComponent() {
                 {...register("description")}
               />
             </div>
-            <div>
+            <div className="grid gap-2 border-t border-slate-200 px-6 py-6 md:grid-cols-2 xl:grid-cols-3">
+              <TextField
+                id="odometer_km"
+                type="number"
+                label="Mileage / odometer (km)"
+                {...register("odometer_km")}
+                defaultValue={updateingItem?.odometerKm || ""}
+              />
+              <Controller
+                name="vehicle_condition"
+                control={control}
+                defaultValue={updateingItem?.vehicleCondition || ""}
+                render={({ field }) => (
+                  <TextField {...field} id="vehicle_condition" select label="Vehicle condition">
+                    <MenuItem value="excellent">Excellent</MenuItem>
+                    <MenuItem value="good">Good</MenuItem>
+                    <MenuItem value="fair">Fair</MenuItem>
+                    <MenuItem value="needs_minor_attention">Needs minor attention</MenuItem>
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="ownership_status"
+                control={control}
+                defaultValue={updateingItem?.ownershipStatus || ""}
+                render={({ field }) => (
+                  <TextField {...field} id="ownership_status" select label="Listing authority">
+                    <MenuItem value="owner">Owner</MenuItem>
+                    <MenuItem value="authorized_agent">Authorized agent</MenuItem>
+                    <MenuItem value="company_vehicle">Company vehicle</MenuItem>
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="inspection_status"
+                control={control}
+                defaultValue={updateingItem?.inspectionStatus || ""}
+                render={({ field }) => (
+                  <TextField {...field} id="inspection_status" select label="Roadworthy inspection">
+                    <MenuItem value="valid">Valid / roadworthy</MenuItem>
+                    <MenuItem value="pending_renewal">Pending renewal</MenuItem>
+                    <MenuItem value="not_available">Not available yet</MenuItem>
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="tracker_status"
+                control={control}
+                defaultValue={updateingItem?.trackerStatus || ""}
+                render={({ field }) => (
+                  <TextField {...field} id="tracker_status" select label="GPS tracker">
+                    <MenuItem value="installed">Installed</MenuItem>
+                    <MenuItem value="can_install">Can install before approval</MenuItem>
+                    <MenuItem value="not_installed">Not installed</MenuItem>
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="last_service_date"
+                control={control}
+                defaultValue={updateingItem?.lastServiceOn ? dayjs(new Date(updateingItem.lastServiceOn)) : null}
+                render={({ field }) => (
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      {...field}
+                      label="Last service date"
+                      value={field.value || null}
+                      onChange={(date) => field.onChange(date)}
+                      textField={(props) => <TextField {...props} />}
+                    />
+                  </LocalizationProvider>
+                )}
+              />
+              <TextField
+                id="service_history"
+                label="Service history"
+                multiline
+                rows={4}
+                {...register("service_history")}
+                defaultValue={updateingItem?.serviceHistory || ""}
+              />
+              <TextField
+                id="paperwork_status"
+                label="Paperwork status"
+                multiline
+                rows={4}
+                {...register("paperwork_status")}
+                defaultValue={updateingItem?.paperworkStatus || ""}
+              />
+              <TextField
+                id="rental_notes"
+                label="Rental notes / restrictions"
+                multiline
+                rows={4}
+                {...register("rental_notes")}
+                defaultValue={updateingItem?.rentalNotes || ""}
+              />
+            </div>
+            <div className="border-t border-slate-200 px-6 py-6">
+              <h2 className="mb-4 text-lg font-semibold text-slate-950">Document dates and uploads</h2>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               <Controller
                 name="insurance_end_date"
                 control={control}
@@ -388,7 +543,8 @@ export default function EditProductComponent() {
               {/* editing for image is not done yet , default value for image is also not done yet */}
 
               {/* file upload section */}
-              <div className="flex flex-col items-start justify-center lg:flex-row gap-10 lg:justify-between lg:items-start   ml-7 mt-10">
+              </div>
+              <div className="mt-6 grid gap-4 lg:grid-cols-4">
                 <div className="max-w-[300px] sm:max-w-[600px]">
                   <label
                     className="block mb-2 text-sm font-medium text-gray-900 "
@@ -457,10 +613,16 @@ export default function EditProductComponent() {
                 </div>
               </div>
             </div>
-            <div className="mt-10 flex justify-start items-center ml-7 mb-10">
-              <Button variant="contained" type="submit">
-                Submit
-              </Button>
+            <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-5">
+              {isVendorFleet ? (
+                <Button variant="outlined" type="button" onClick={handleClose}>
+                  Back to fleet
+                </Button>
+              ) : (
+                <Button variant="contained" type="submit">
+                  Save changes
+                </Button>
+              )}
             </div>
           </Box>
         </div>

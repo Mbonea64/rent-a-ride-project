@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { setUpdateRequestTable, setVenodrVehilces, setadminVenodrRequest } from "../../../redux/vendor/vendorDashboardSlice";
 import { getPendingVehicles, reviewVehicle } from "../../../services/vehicleService";
 import VehicleArtwork from "../../../components/VehicleArtwork";
+import { sendVendorVehicleStatusEmail } from "../../../services/companyNotificationService";
 
 
 
@@ -36,8 +37,15 @@ const VenderVehicleRequests = () => {
   //aprove vendor vehicle request
   const handleApproveRequest = async (id) => {
     try {
+      const vehicle = (adminVenodrRequest || []).find((item) => item._id === id);
       dispatch(setUpdateRequestTable(id))
       await reviewVehicle(id, "approved");
+      sendVendorVehicleStatusEmail({
+        to: vehicle?.ownerProfile?.email,
+        vehicleName: [vehicle?.company, vehicle?.model || vehicle?.name].filter(Boolean).join(" ") || "Your vehicle",
+        status: "approved",
+        note: "Your vehicle has passed Rent a Ride review and can now appear in the customer catalogue.",
+      }).catch(() => null);
       setSelectedVehicle(null);
     } catch (error) {
       console.log(error);
@@ -47,8 +55,14 @@ const VenderVehicleRequests = () => {
   //reject vendor Vehilce Request
   const handleReject = async (id) => {
     try {
-     
+      const vehicle = (adminVenodrRequest || []).find((item) => item._id === id);
       await reviewVehicle(id, "rejected");
+      sendVendorVehicleStatusEmail({
+        to: vehicle?.ownerProfile?.email,
+        vehicleName: [vehicle?.company, vehicle?.model || vehicle?.name].filter(Boolean).join(" ") || "Your vehicle",
+        status: "rejected",
+        note: "Rent a Ride could not approve this vehicle yet. Please check your dashboard and contact support for the next steps.",
+      }).catch(() => null);
       setSelectedVehicle(null);
     } catch (error) {
       console.log(error);

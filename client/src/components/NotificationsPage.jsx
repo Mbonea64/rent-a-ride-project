@@ -6,7 +6,11 @@ import { getBookings } from "../services/bookingService";
 import { buildAutomatedCustomerMessages, getCompanyDispatchLog } from "../services/companyNotificationService";
 import { shouldShowInVendorDashboard } from "../services/demoOpsService";
 import { getPendingVehicles, getVendorVehicles } from "../services/vehicleService";
-import { buildVehicleRequestNotifications } from "../services/notificationService";
+import {
+  buildVehicleIssueNotifications,
+  buildVehicleRequestNotifications,
+} from "../services/notificationService";
+import { getVehicleIssueReports } from "../services/vehicleIssueService";
 
 const dispatchTone = (status = "") => {
   if (status === "sent") return "bg-emerald-50 border-emerald-100 text-emerald-950";
@@ -43,6 +47,7 @@ const NotificationsPage = ({ role = "customer" }) => {
   const [bookings, setBookings] = useState([]);
   const [vendorVehicles, setVendorVehicles] = useState([]);
   const [pendingVehicleRequests, setPendingVehicleRequests] = useState([]);
+  const [vehicleIssueReports, setVehicleIssueReports] = useState([]);
   const [dispatchLog, setDispatchLog] = useState(getCompanyDispatchLog());
 
   useEffect(() => {
@@ -52,11 +57,12 @@ const NotificationsPage = ({ role = "customer" }) => {
         getBookings().catch(() => []),
         role === "vendor" ? getVendorVehicles().catch(() => []) : Promise.resolve([]),
         role === "admin" ? getPendingVehicles().catch(() => []) : Promise.resolve([]),
-      ]).then(([bookingData, vehicleData, pendingVehicles]) => {
+      ]).then(async ([bookingData, vehicleData, pendingVehicles]) => {
         if (!active) return;
         setBookings(bookingData || []);
         setVendorVehicles(vehicleData || []);
         setPendingVehicleRequests(pendingVehicles || []);
+        setVehicleIssueReports(role === "admin" ? await getVehicleIssueReports().catch(() => []) : []);
         setDispatchLog(getCompanyDispatchLog());
       });
     load();
@@ -65,6 +71,7 @@ const NotificationsPage = ({ role = "customer" }) => {
     window.addEventListener("rent-a-ride-payment-updated", load);
     window.addEventListener("rent-a-ride-bookings-updated", load);
     window.addEventListener("rent-a-ride-vehicle-requests-updated", load);
+    window.addEventListener("rent-a-ride-vehicle-issues-updated", load);
     window.addEventListener("rent-a-ride-demo-clock-updated", load);
     window.addEventListener("rent-a-ride-demo-reset", load);
     window.addEventListener("rent-a-ride-company-message-sent", refreshDispatchLog);
@@ -74,6 +81,7 @@ const NotificationsPage = ({ role = "customer" }) => {
       window.removeEventListener("rent-a-ride-payment-updated", load);
       window.removeEventListener("rent-a-ride-bookings-updated", load);
       window.removeEventListener("rent-a-ride-vehicle-requests-updated", load);
+      window.removeEventListener("rent-a-ride-vehicle-issues-updated", load);
       window.removeEventListener("rent-a-ride-demo-clock-updated", load);
       window.removeEventListener("rent-a-ride-demo-reset", load);
       window.removeEventListener("rent-a-ride-company-message-sent", refreshDispatchLog);
@@ -93,9 +101,12 @@ const NotificationsPage = ({ role = "customer" }) => {
   const extraNotifications = useMemo(
     () =>
       role === "admin"
-        ? buildVehicleRequestNotifications({ vehicles: pendingVehicleRequests })
+        ? [
+            ...buildVehicleRequestNotifications({ vehicles: pendingVehicleRequests }),
+            ...buildVehicleIssueNotifications({ reports: vehicleIssueReports }),
+          ]
         : [],
-    [pendingVehicleRequests, role]
+    [pendingVehicleRequests, vehicleIssueReports, role]
   );
 
   return (

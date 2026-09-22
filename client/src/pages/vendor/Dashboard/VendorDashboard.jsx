@@ -11,6 +11,7 @@ import VendorSidebar from "../Components/VendorSidebar";
 import VendorBookings from "../Components/VendorBookings";
 import NotificationsPage from "../../../components/NotificationsPage";
 import VendorSalesDashboard from "../pages/VendorSalesDashboard";
+import VendorEditProductComponent from "../Components/VendorEditProductComponent";
 
 function VendorDashboard() {
   const { activeMenu } = useSelector((state) => state.adminDashboardSlice);
@@ -40,20 +41,21 @@ function VendorDashboard() {
         )}
 
         <div
-          className={`dark:bg-white bg-white min-h-screen w-full ${
-            activeMenu ? "ml-72 md:ml-72" : "flex-2"
+          className={`dark:bg-white bg-white min-h-screen min-w-0 ${
+            activeMenu ? "ml-72 w-[calc(100%-18rem)] md:ml-72" : "w-full flex-1"
           } `}
         >
           <div className={`fixed md:static bg-white  w-full   `}>
             <Navbar />
           </div>
 
-          <div className="main_section mx-4 md:mx-8 overflow-x-hidden">
+          <div className="main_section mx-4 min-w-0 overflow-x-hidden md:mx-8">
             <Routes>
               <Route path="/" element={<VendorHomeMain />} />
               <Route path="/adminHome" element={<VendorHomeMain />} />
               <Route path="/overview" element={<VendorHomeMain />} />
               <Route path="/vendorAllVeihcles" element={<VendorAllVehicles />} />
+              <Route path="/vendorEditProductComponent" element={<VendorEditProductComponent />} />
               <Route path="/bookings" element={<VendorBookings />} />
               <Route path="/sales" element={<VendorSalesDashboard />} />
               <Route path="/notifications" element={<NotificationsPage role="vendor" />} />

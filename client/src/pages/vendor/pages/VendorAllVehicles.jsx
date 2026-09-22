@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import ModeEditOutlineIcon from "@mui/icons-material/ModeEditOutline";
@@ -21,11 +21,17 @@ import { MdOutlinePending } from "react-icons/md";
 import VendorHeader from "../Components/VendorHeader";
 import { getVendorVehicles } from "../../../services/vehicleService";
 import VehicleArtwork from "../../../components/VehicleArtwork";
+import { reportVehicleIssue } from "../../../services/vehicleIssueService";
 
 
 const VendorAllVehicles = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [reportVehicle, setReportVehicle] = useState(null);
+  const [reportForm, setReportForm] = useState({
+    reason: "Vehicle temporarily unavailable",
+    note: "",
+  });
 
   const { isAddVehicleClicked } = useSelector((state) => state.addVehicle);
   const { vendorVehilces, vendorEditSuccess,vendorDeleteSuccess, vendorErrorSuccess } = useSelector(
@@ -53,6 +59,31 @@ const VendorAllVehicles = () => {
   const handleDeleteVehicles = (vehicle_id) => {
     navigate(`/vendorDashboard/vendorDeleteVehicleModal?vehicle_id=${vehicle_id}`);
   }
+
+  const openReportIssue = (vehicle) => {
+    setReportVehicle(vehicle);
+    setReportForm({
+      reason: "Vehicle temporarily unavailable",
+      note: `${vehicle.company} ${vehicle.model || vehicle.name} (${vehicle.registeration_number}) needs admin attention. Please review availability before customers book it.`,
+    });
+  };
+
+  const handleReportIssue = async (event) => {
+    event.preventDefault();
+    if (!reportVehicle) return;
+    try {
+      await reportVehicleIssue({
+        vehicle: reportVehicle,
+        reason: reportForm.reason,
+        note: reportForm.note,
+      });
+      setReportVehicle(null);
+      toast.success("Vehicle report sent to admin");
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.message || "Could not send report to admin");
+    }
+  };
 
   const columns = [
     {
@@ -118,6 +149,20 @@ const VendorAllVehicles = () => {
         </Button>
       ),
     },
+    {
+      field: "report",
+      headerName: "Report issue",
+      width: 150,
+      renderCell: (params) => (
+        <button
+          className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 ring-1 ring-amber-200"
+          onClick={() => openReportIssue(params.row.vehicle)}
+          type="button"
+        >
+          Report
+        </button>
+      ),
+    },
   ];
 
   const rows =
@@ -132,6 +177,7 @@ const VendorAllVehicles = () => {
         name: vehicle.name,
         location: [vehicle.location, vehicle.district].filter(Boolean).join(", ") || "Not set",
         status: !vehicle.isRejected ? vehicle.isAdminApproved : "rejected",
+        vehicle,
       }));
 
   //checking if vendor has vehicles
@@ -193,6 +239,84 @@ const VendorAllVehicles = () => {
               }}
             />
           </Box>
+        </div>
+      )}
+
+      {reportVehicle && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4">
+          <form
+            className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl"
+            onSubmit={handleReportIssue}
+          >
+            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                Vendor fleet report
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                Send vehicle issue to admin
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                This creates an admin Fleet alert. Admin can update, hide, delete, or mark the vehicle report attended.
+              </p>
+            </div>
+            <div className="grid gap-4 px-6 py-5 md:grid-cols-[180px_1fr]">
+              <VehicleArtwork
+                alt={reportVehicle.name || "Vehicle"}
+                className="aspect-video w-full rounded-lg border border-slate-200"
+                fit="cover"
+                src={reportVehicle.image?.[0] || ""}
+              />
+              <div>
+                <h3 className="text-lg font-semibold text-slate-950">
+                  {reportVehicle.company} {reportVehicle.model || reportVehicle.name}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {reportVehicle.registeration_number} · {reportVehicle.location || "Vehicle location not set"}
+                </p>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">
+                  Report type
+                  <select
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm"
+                    value={reportForm.reason}
+                    onChange={(event) =>
+                      setReportForm((current) => ({ ...current, reason: event.target.value }))
+                    }
+                  >
+                    <option>Vehicle temporarily unavailable</option>
+                    <option>Vehicle needs maintenance</option>
+                    <option>Document or ownership issue</option>
+                    <option>GPS tracker issue</option>
+                    <option>Pricing or listing correction needed</option>
+                  </select>
+                </label>
+              </div>
+              <label className="md:col-span-2 text-sm font-semibold text-slate-700">
+                Message to admin
+                <textarea
+                  className="mt-1 min-h-36 w-full rounded-lg border border-slate-200 px-3 py-3 text-sm leading-6"
+                  value={reportForm.note}
+                  onChange={(event) =>
+                    setReportForm((current) => ({ ...current, note: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                onClick={() => setReportVehicle(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+                type="submit"
+              >
+                Submit report
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

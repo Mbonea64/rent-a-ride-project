@@ -377,8 +377,14 @@ export const toAppBooking = (booking) => {
   const status = toLegacyStatus(booking.status);
   const payment = booking.payments?.[0] || {};
   const paymentOverride = getDemoPaymentOverride(booking.id);
-  const paymentStatus = paymentOverride.status || payment.status || "pending";
-  const paymentProvider = paymentOverride.provider || payment.provider || "Pending";
+  const persistedPaid = payment.status === "paid";
+  const paymentStatus = persistedPaid ? payment.status : paymentOverride.status || payment.status || "pending";
+  const paymentProvider = persistedPaid
+    ? payment.provider || paymentOverride.provider || "Pending"
+    : paymentOverride.provider || payment.provider || "Pending";
+  const paymentReference = persistedPaid
+    ? payment.provider_reference || paymentOverride.reference || ""
+    : paymentOverride.reference || payment.provider_reference || "";
   const lineItems = booking.booking_line_items || demoEnhancement.line_items || [];
   const pickupAt = demoOverride.pickup_at || booking.pickup_at;
   const dropoffAt = demoOverride.dropoff_at || booking.dropoff_at;
@@ -414,7 +420,7 @@ export const toAppBooking = (booking) => {
     lineItems,
     invoices: booking.invoices || [],
     paymentProvider,
-    paymentReference: paymentOverride.reference || payment.provider_reference || "",
+    paymentReference,
     paymentConfirmedAt: paymentOverride.confirmed_at || null,
     paymentStatus,
     status,
@@ -423,7 +429,7 @@ export const toAppBooking = (booking) => {
       _id: booking.id,
       status,
       paymentMethod: paymentProvider,
-      paymentReference: paymentOverride.reference || payment.provider_reference || "",
+      paymentReference,
       paymentConfirmedAt: paymentOverride.confirmed_at || null,
       paymentStatus,
       totalPrice: Number(demoEnhancement.total_price || booking.total_price),
@@ -652,12 +658,58 @@ export const generateBookingInvoice = async (id) => {
 };
 
 export const submitBookingPayment = async (id, { provider, reference }) => {
+  const submittedAt = new Date().toISOString();
   writeDemoPaymentOverride(id, {
     provider,
     reference,
     status: "submitted",
-    submitted_at: new Date().toISOString(),
+    submitted_at: submittedAt,
   });
+
+  await requireSupabase()
+    .rpc("submit_booking_payment", {
+      p_booking_id: id,
+      p_provider: provider,
+      p_reference: reference || null,
+    })
+    .then(({ error }) => {
+      if (error) throw error;
+    })
+    .catch((error) => {
+      if (!isMissingFeatureError(error)) {
+        console.warn("Could not persist payment submission", error);
+      }
+    });
+
+  const booking = await loadBooking(id);
+  dispatchBookingUpdated();
+  return booking;
+};
+
+export const setBookingPaymentReviewStatus = async (id, { status, provider, reference }) => {
+  writeDemoPaymentOverride(id, {
+    provider,
+    reference,
+    status,
+    review_updated_at: new Date().toISOString(),
+  });
+
+  await requireSupabase()
+    .rpc("set_booking_payment_review_status", {
+      p_booking_id: id,
+      p_status: status,
+      p_provider: provider || null,
+      p_reference: reference || null,
+    })
+    .then(({ error }) => {
+      if (error) throw error;
+    })
+    .catch((error) => {
+      if (!isMissingFeatureError(error)) {
+        console.warn("Could not persist payment review status", error);
+      }
+    });
+
   const booking = await loadBooking(id);
   dispatchBookingUpdated();
   return booking;

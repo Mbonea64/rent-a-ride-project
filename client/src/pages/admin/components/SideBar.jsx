@@ -35,6 +35,8 @@ const SideBar = () => {
     loadActionCounts();
     const interval = window.setInterval(loadActionCounts, 30000);
     window.addEventListener("rent-a-ride-vehicle-requests-updated", loadActionCounts);
+    window.addEventListener("rent-a-ride-vehicle-issues-updated", loadActionCounts);
+    window.addEventListener("rent-a-ride-vehicle-change-requests-updated", loadActionCounts);
     window.addEventListener("rent-a-ride-payment-updated", loadActionCounts);
     window.addEventListener("rent-a-ride-bookings-updated", loadActionCounts);
     window.addEventListener("rent-a-ride-demo-reset", loadActionCounts);
@@ -44,6 +46,8 @@ const SideBar = () => {
       active = false;
       window.clearInterval(interval);
       window.removeEventListener("rent-a-ride-vehicle-requests-updated", loadActionCounts);
+      window.removeEventListener("rent-a-ride-vehicle-issues-updated", loadActionCounts);
+      window.removeEventListener("rent-a-ride-vehicle-change-requests-updated", loadActionCounts);
       window.removeEventListener("rent-a-ride-payment-updated", loadActionCounts);
       window.removeEventListener("rent-a-ride-bookings-updated", loadActionCounts);
       window.removeEventListener("rent-a-ride-demo-reset", loadActionCounts);

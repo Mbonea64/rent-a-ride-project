@@ -12,17 +12,24 @@ const Bookings = () => {
         .then((data) => active && setBookings(data || []))
         .catch((error) => console.error("Could not load admin operations", error));
     load();
+    const interval = window.setInterval(load, 5000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) load();
+    };
     window.addEventListener("rent-a-ride-payment-updated", load);
     window.addEventListener("rent-a-ride-bookings-updated", load);
     window.addEventListener("rent-a-ride-demo-clock-updated", load);
     window.addEventListener("rent-a-ride-demo-reset", load);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("storage", load);
     return () => {
       active = false;
+      window.clearInterval(interval);
       window.removeEventListener("rent-a-ride-payment-updated", load);
       window.removeEventListener("rent-a-ride-bookings-updated", load);
       window.removeEventListener("rent-a-ride-demo-clock-updated", load);
       window.removeEventListener("rent-a-ride-demo-reset", load);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("storage", load);
     };
   }, []);

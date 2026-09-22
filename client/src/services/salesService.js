@@ -2,6 +2,7 @@ import { getBookings, resetDemoBookingState } from "./bookingService";
 import { clearCompanyDispatchLog } from "./companyNotificationService";
 import { clearDemoOpsChannel, shouldShowInVendorDashboard } from "./demoOpsService";
 import { clearAllNotificationReadState } from "./notificationService";
+import { clearVehicleIssueReports } from "./vehicleIssueService";
 import { getVendorVehicles } from "./vehicleService";
 
 const manualSalesKey = "rent_a_ride_manual_sales_records";
@@ -81,6 +82,7 @@ export const resetDemoActivityRecords = async () => {
   clearCompanyDispatchLog();
   clearAllNotificationReadState();
   clearDemoOpsChannel();
+  clearVehicleIssueReports();
   const clearedBookings = await resetDemoBookingState();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("rent-a-ride-demo-reset"));

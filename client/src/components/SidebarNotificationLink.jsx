@@ -6,9 +6,11 @@ import { getBookings } from "../services/bookingService";
 import { shouldShowInVendorDashboard } from "../services/demoOpsService";
 import {
   buildBookingNotifications,
+  buildVehicleIssueNotifications,
   buildVehicleRequestNotifications,
   getUnreadNotifications,
 } from "../services/notificationService";
+import { getVehicleIssueReports } from "../services/vehicleIssueService";
 import { getPendingVehicles, getVendorVehicles } from "../services/vehicleService";
 
 const rolePaths = {
@@ -21,6 +23,7 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
   const [bookings, setBookings] = useState([]);
   const [vendorVehicles, setVendorVehicles] = useState([]);
   const [pendingVehicleRequests, setPendingVehicleRequests] = useState([]);
+  const [vehicleIssueReports, setVehicleIssueReports] = useState([]);
   const [readVersion, setReadVersion] = useState(0);
 
   useEffect(() => {
@@ -35,6 +38,7 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
         setBookings(bookingData || []);
         setVendorVehicles(vehicleData || []);
         setPendingVehicleRequests(pendingVehicles || []);
+        setVehicleIssueReports(role === "admin" ? await getVehicleIssueReports().catch(() => []) : []);
       } catch (error) {
         console.error("Could not load notification link", error);
       }
@@ -47,6 +51,7 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
     window.addEventListener("rent-a-ride-payment-updated", load);
     window.addEventListener("rent-a-ride-bookings-updated", load);
     window.addEventListener("rent-a-ride-vehicle-requests-updated", load);
+    window.addEventListener("rent-a-ride-vehicle-issues-updated", load);
     window.addEventListener("rent-a-ride-demo-reset", load);
     window.addEventListener("storage", load);
     return () => {
@@ -56,6 +61,7 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
       window.removeEventListener("rent-a-ride-payment-updated", load);
       window.removeEventListener("rent-a-ride-bookings-updated", load);
       window.removeEventListener("rent-a-ride-vehicle-requests-updated", load);
+      window.removeEventListener("rent-a-ride-vehicle-issues-updated", load);
       window.removeEventListener("rent-a-ride-demo-reset", load);
       window.removeEventListener("storage", load);
     };
@@ -73,11 +79,14 @@ const SidebarNotificationLink = ({ role = "customer" }) => {
           ...(role === "admin"
             ? buildVehicleRequestNotifications({ vehicles: pendingVehicleRequests })
             : []),
+          ...(role === "admin"
+            ? buildVehicleIssueNotifications({ reports: vehicleIssueReports })
+            : []),
           ...buildBookingNotifications({ bookings: scopedBookings, role }),
         ],
         role
       ),
-    [pendingVehicleRequests, scopedBookings, role, readVersion]
+    [pendingVehicleRequests, vehicleIssueReports, scopedBookings, role, readVersion]
   );
 
   return (

@@ -7,10 +7,17 @@ import { setVendorOrderModalOpen, setVendorSingleOrderDetails } from "../../../r
 import { formatTZS } from "../../../data/localData";
 import { getBookings } from "../../../services/bookingService";
 import { shouldShowInVendorDashboard } from "../../../services/demoOpsService";
-import { getBookingLifecycleLabel, isBookingPaid } from "../../../services/notificationService";
+import {
+  getBookingLifecycleLabel,
+  isBookingPaid,
+  isPaymentSubmitted,
+} from "../../../services/notificationService";
 import { getVendorVehicles } from "../../../services/vehicleService";
 
 const statusClass = (status) => {
+  if (status === "Car booked") return "bg-emerald-100 text-emerald-700";
+  if (status === "Booking in progress") return "bg-amber-100 text-amber-800";
+  if (status === "Awaiting payment") return "bg-slate-100 text-slate-700";
   if (status === "canceled") return "bg-red-100 text-red-700";
   if (status === "onTrip") return "bg-sky-100 text-sky-700";
   if (status === "tripCompleted") return "bg-emerald-100 text-emerald-700";
@@ -177,8 +184,12 @@ const VendorBookingsTable = ({ bookings: scopedBookings }) => {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(booking.status)}`}>
-                        {booking.status}
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(isBookingPaid(booking) ? "Car booked" : isPaymentSubmitted(booking) || booking.paymentReference ? "Booking in progress" : "Awaiting payment")}`}>
+                        {isBookingPaid(booking)
+                          ? "Car booked"
+                          : isPaymentSubmitted(booking) || booking.paymentReference
+                            ? "Booking in progress"
+                            : "Awaiting payment"}
                       </span>
                     </td>
                     <td className="px-4 py-4">

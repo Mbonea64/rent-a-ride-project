@@ -1,6 +1,8 @@
 import { getBookings } from "./bookingService";
 import { shouldShowInVendorDashboard } from "./demoOpsService";
 import { isBookingPaid, isPaymentSubmitted } from "./notificationService";
+import { getVehicleIssueReports } from "./vehicleIssueService";
+import { getVehicleChangeRequests } from "./vehicleChangeRequestService";
 import { getPendingVehicles, getVendorVehicles } from "./vehicleService";
 
 const isActiveBooking = (booking = {}) =>
@@ -10,25 +12,31 @@ const isActiveBooking = (booking = {}) =>
 
 const isCustomerBooking = (booking = {}, userId) => !userId || booking.userId === userId;
 
+const hasSubmittedPaymentCode = (booking = {}) =>
+  Boolean(booking.paymentReference || booking.bookingDetails?.paymentReference);
+
 export const getAdminActionCounts = async () => {
-  const [bookings, pendingVehicles] = await Promise.all([
+  const [bookings, pendingVehicles, issueReports, changeRequests] = await Promise.all([
     getBookings().catch(() => []),
     getPendingVehicles().catch(() => []),
+    getVehicleIssueReports().catch(() => []),
+    getVehicleChangeRequests().catch(() => []),
   ]);
+  const vehicleIssues = issueReports.filter((report) => report.status === "open");
+  const pendingChanges = changeRequests.filter((request) => request.status === "pending");
 
   const paymentConfirmations = bookings.filter(
-    (booking) => isActiveBooking(booking) && isPaymentSubmitted(booking)
-  ).length;
-  const unpaidBookings = bookings.filter(
     (booking) =>
-      isActiveBooking(booking) && !isBookingPaid(booking) && !isPaymentSubmitted(booking)
+      isActiveBooking(booking) &&
+      (isPaymentSubmitted(booking) || (!isBookingPaid(booking) && hasSubmittedPaymentCode(booking)))
   ).length;
 
   return {
-    orders: paymentConfirmations + unpaidBookings,
+    orders: paymentConfirmations,
     sales: paymentConfirmations,
     vendorVehicleRequests: pendingVehicles.length,
-    notifications: paymentConfirmations + unpaidBookings + pendingVehicles.length,
+    allProduct: vehicleIssues.length + pendingChanges.length,
+    notifications: paymentConfirmations + pendingVehicles.length + vehicleIssues.length + pendingChanges.length,
   };
 };
 
